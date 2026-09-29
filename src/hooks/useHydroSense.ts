@@ -1,0 +1,609 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { SystemState, TankId, AiVoiceCommandResult, TankState } from '../types';
+import { createDefaultSystemState } from '../utils/initialState';
+import {
+  webSerial,
+  ArduinoTelemetry,
+  UsbConnectionStatus,
+  SerialErrorDetails,
+} from '../services/webSerial';
+
+export function useHydroSense() {
+  // Initialize immediately with authentic default offline state so the app renders on frame 1
+  const [state, setState] = useState<SystemState>(createDefaultSystemState);
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const [lastAiResult, setLastAiResult] = useState<AiVoiceCommandResult | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Web Serial State
+  const [usbStatus, setUsbStatus] = useState<UsbConnectionStatus>(() => webSerial.getStatus());
+  const [usbError, setUsbError] = useState<string | null>(null);
+  const [usbTelemetry, setUsbTelemetry] = useState<ArduinoTelemetry | null>(() => webSerial.getLastTelemetry());
+  const isUsbSupported = webSerial.isSupported();
+  const isIframeEmbedded = webSerial.isIframe();
+  const [isPermissionsDisallowed, setIsPermissionsDisallowed] = useState<boolean>(() => webSerial.isPermissionsPolicyDisallowed());
+
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Controller is ONLY considered connected when real hardware telemetry is online via USB
+  const isControllerConnected =
+    usbStatus === 'CONNECTED' &&
+    Boolean(usbTelemetry && !usbTelemetry.isStale && state.tank?.hasRealTelemetry);
+
+  // Connect Web Serial (Requires user click gesture)
+  const connectUsb = useCallback(async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setUsbError(null);
+    try {
+      const ok = await webSerial.connect();
+      if (!ok) {
+        const lastErr = webSerial.getStatus() === 'ERROR';
+        if (lastErr) {
+          // Keep current usbError
+        }
+      }
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'USB પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
+      setUsbError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Disconnect Web Serial
+  const disconnectUsb = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      await webSerial.disconnect();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Start Filling via USB (TARGET:xx then START)
+  const startUsbFilling = useCallback(async (targetPercent: number): Promise<boolean> => {
+    setActionError(null);
+    if (webSerial.getStatus() !== 'CONNECTED') {
+      const err = 'Arduino Uno USB સાથે જોડાયેલ નથી. કૃપા કરીને પહેલા "Connect USB" પર ક્લિક કરો.';
+      setActionError(err);
+      return false;
+    }
+    if (!state.tank.hasRealTelemetry || state.tank.currentPercent === null) {
+      const err = 'વાસ્તવિક સેન્સર રીડિંગ મળ્યું નથી. સલામતી નિયમ મુજબ સેન્સર ફીડબેક વગર પંપ શરૂ કરી શકાતો નથી.';
+      setActionError(err);
+      return false;
+    }
+    if (state.tank.currentPercent >= targetPercent) {
+      const err = `પાણીનું સ્તર (${state.tank.currentPercent}%) પહેલેથી જ પસંદ કરેલા લક્ષ્યાંક (${targetPercent}%) પર અથવા તેનાથી ઉપર છે.`;
+      setActionError(err);
+      return false;
+    }
+    if (state.tank.currentPercent >= 97) {
+      const err = 'ટાંકી ૯૭% કે તેથી વધુ ભરાયેલી છે (ક્રિટિકલ ઓવરફ્લો સેફ્ટી). પંપ શરૂ થઈ શકશે નહીં.';
+      setActionError(err);
+      return false;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const ok = await webSerial.startFilling(targetPercent);
+      if (!ok) {
+        setActionError('કમાન્ડ મોકલવામાં નિષ્ફળતા. USB કનેક્શન તપાસો.');
+      }
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'કમાન્ડ ભૂલ';
+      setActionError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [state.tank.hasRealTelemetry, state.tank.currentPercent]);
+
+  // Stop Pump via USB (STOP)
+  const stopUsbPump = useCallback(async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const ok = await webSerial.stopPump();
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'કમાન્ડ ભૂલ';
+      setActionError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Emergency Stop via USB (STOP x 2)
+  const emergencyStopUsb = useCallback(async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const ok = await webSerial.emergencyStop();
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ઈમરજન્સી સ્ટોપ ભૂલ';
+      setActionError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Set Target Level via USB (TARGET:xx)
+  const setUsbTarget = useCallback(async (pct: number): Promise<boolean> => {
+    if (webSerial.getStatus() !== 'CONNECTED') return false;
+    return await webSerial.setTarget(pct);
+  }, []);
+
+  // WebSerial Subscriptions
+  useEffect(() => {
+    const unsubStatus = webSerial.onStatus((status, err) => {
+      setUsbStatus(status);
+      if (err) {
+        setUsbError(err.message);
+        if (err.code === 'PERMISSIONS_POLICY_DISALLOWED') {
+          setIsPermissionsDisallowed(true);
+        }
+      } else if (status === 'CONNECTED') {
+        setUsbError(null);
+      }
+
+      if (status === 'DISCONNECTED' || status === 'ERROR') {
+        setUsbTelemetry(null);
+        setState((prev) => {
+          const offlineTank: TankState = {
+            ...prev.tank,
+            currentPercent: null,
+            currentDistanceCm: null,
+            currentLiters: null,
+            pumpStatus: 'OFF',
+            hasRealTelemetry: false,
+            hardwareStatus: 'OFFLINE',
+          };
+          return {
+            ...prev,
+            hardwareStatus: 'OFFLINE',
+            connectionState: 'DISCONNECTED',
+            tank: offlineTank,
+            tank1: offlineTank,
+            safety: {
+              ...prev.safety,
+              isHardwareOnline: false,
+            },
+          };
+        });
+      }
+    });
+
+    const unsubTelemetry = webSerial.onTelemetry((telemetry) => {
+      setUsbTelemetry(telemetry);
+      setState((prev) => {
+        const isStale = telemetry.isStale;
+        const validSensor = !isStale && telemetry.distanceCm >= 1.0 && telemetry.distanceCm <= 35.0;
+        const hwStatus = isStale
+          ? 'OFFLINE'
+          : validSensor
+          ? 'ONLINE'
+          : 'SENSOR_ERROR';
+        const sensorHealth = validSensor ? 'OK' : 'OUT_OF_RANGE';
+        const currentLiters = validSensor
+          ? Math.round((telemetry.levelPercent / 100) * prev.tank.capacityLiters)
+          : null;
+
+        const updatedTank: TankState = {
+          ...prev.tank,
+          currentPercent: validSensor ? telemetry.levelPercent : null,
+          currentDistanceCm: validSensor ? telemetry.distanceCm : null,
+          currentLiters,
+          pumpStatus: telemetry.pumpStatus === 'ON' ? 'RUNNING' : 'OFF',
+          targetPercent: telemetry.targetPercent,
+          sensorHealth,
+          hasRealTelemetry: validSensor,
+          lastReadingTime: telemetry.lastReceivedAt,
+          hardwareStatus: hwStatus,
+        };
+
+        return {
+          ...prev,
+          hardwareStatus: hwStatus,
+          connectionState: isStale ? 'DISCONNECTED' : 'CONNECTED',
+          tank: updatedTank,
+          tank1: updatedTank,
+          safety: {
+            ...prev.safety,
+            isHardwareOnline: !isStale,
+            lastHardwarePing: telemetry.lastReceivedAt,
+          },
+        };
+      });
+    });
+
+    const unsubLog = webSerial.onLog((msg, type) => {
+      setState((prev) => ({
+        ...prev,
+        recentLogs: [
+          {
+            id: `usb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            timestamp: Date.now(),
+            level: type === 'error' ? 'ERROR' : type === 'tx' || type === 'rx' ? 'INFO' : 'INFO',
+            source: 'MEGA',
+            message: `[USB ${type.toUpperCase()}] ${msg}`,
+          },
+          ...prev.recentLogs.slice(0, 49),
+        ],
+      }));
+    });
+
+    return () => {
+      unsubStatus();
+      unsubTelemetry();
+      unsubLog();
+    };
+  }, []);
+
+  // Fetch status directly via HTTP GET with a strict 4-second timeout
+  const fetchStatus = useCallback(async (isManualRetry = false): Promise<SystemState | null> => {
+    if (isManualRetry) {
+      setIsCheckingConnection(true);
+      setConnectionError(null);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    try {
+      const res = await fetch('/api/status', {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`સર્વર પ્રતિસાદ મળ્યો નહીં (HTTP ${res.status})`);
+      }
+
+      const data = (await res.json()) as SystemState;
+      // If USB is actively connected, keep USB real telemetry
+      setState((prev) => {
+        if (webSerial.getStatus() === 'CONNECTED' && webSerial.getLastTelemetry()) {
+          return {
+            ...data,
+            tank: prev.tank,
+            tank1: prev.tank1,
+            hardwareStatus: prev.hardwareStatus,
+            connectionState: prev.connectionState,
+          };
+        }
+        return data;
+      });
+      setIsBackendConnected(true);
+      setConnectionError(null);
+      return data;
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      setIsBackendConnected(false);
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      const errMsg = isAbort
+        ? 'કંટ્રોલર કનેક્શન ટાઈમઆઉટ: ૪ સેકન્ડમાં પ્રતિસાદ મળ્યો નહીં.'
+        : 'કંટ્રોલર અને સર્વર સાથે જોડાણ થઈ શક્યું નથી.';
+      setConnectionError(errMsg);
+      return null;
+    } finally {
+      if (isManualRetry) {
+        setIsCheckingConnection(false);
+      }
+    }
+  }, []);
+
+  // Manual Retry connection function
+  const retryConnection = useCallback(async () => {
+    if (webSerial.getStatus() === 'CONNECTED') {
+      await webSerial.requestStatus();
+    } else {
+      await connectUsb();
+    }
+    await fetchStatus(true);
+  }, [connectUsb, fetchStatus]);
+
+  // Setup SSE stream with fallback polling
+  const initEventSource = useCallback(() => {
+    if (eventSourceRef.current) {
+      try {
+        eventSourceRef.current.close();
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      const es = new EventSource('/api/events');
+      eventSourceRef.current = es;
+
+      es.onopen = () => {
+        setIsBackendConnected(true);
+        setConnectionError(null);
+      };
+
+      es.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data) as SystemState;
+          setState((prev) => {
+            if (webSerial.getStatus() === 'CONNECTED' && webSerial.getLastTelemetry()) {
+              return {
+                ...parsed,
+                tank: prev.tank,
+                tank1: prev.tank1,
+                hardwareStatus: prev.hardwareStatus,
+                connectionState: prev.connectionState,
+              };
+            }
+            return parsed;
+          });
+          setIsBackendConnected(true);
+          setConnectionError(null);
+        } catch (err) {
+          console.error('Failed to parse SSE payload:', err);
+        }
+      };
+
+      es.onerror = () => {
+        setIsBackendConnected(false);
+        try {
+          es.close();
+        } catch {
+          // ignore
+        }
+      };
+    } catch (err) {
+      console.warn('EventSource initialization warning:', err);
+    }
+  }, []);
+
+  // Lifecycle on mount: Immediate fetch + SSE + fallback poll
+  useEffect(() => {
+    fetchStatus(false);
+    initEventSource();
+
+    pollTimerRef.current = setInterval(() => {
+      if (!eventSourceRef.current || eventSourceRef.current.readyState !== EventSource.OPEN) {
+        fetchStatus(false);
+      }
+    }, 4000);
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+      }
+    };
+  }, [fetchStatus, initEventSource]);
+
+  // Send pump control command (Protected)
+  const controlPump = useCallback(
+    async (tankId: TankId, action: 'START' | 'STOP', targetPercent?: number, autoStopAtTarget = true) => {
+      if (webSerial.getStatus() === 'CONNECTED') {
+        if (action === 'START') {
+          return await startUsbFilling(targetPercent ?? 85);
+        } else {
+          return await stopUsbPump();
+        }
+      }
+
+      setIsSubmitting(true);
+      setActionError(null);
+      try {
+        const res = await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'PUMP_CONTROL',
+            tankId,
+            action,
+            targetPercent,
+            autoStopAtTarget,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'મોટર કમાન્ડ મોકલવામાં નિષ્ફળતા');
+        }
+        return data;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'અજ્ઞાત ભૂલ આવી છે';
+        setActionError(msg);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [startUsbFilling, stopUsbPump]
+  );
+
+  // Trigger or clear emergency stop
+  const setEmergencyStop = useCallback(async (active: boolean, reason?: string) => {
+    if (webSerial.getStatus() === 'CONNECTED' && active) {
+      await emergencyStopUsb();
+    }
+
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/emergency-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'ઈમરજન્સી સ્ટોપ સ્થિતિ બદલવામાં નિષ્ફળતા');
+      }
+      return data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'અજ્ઞાત ભૂલ આવી છે';
+      setActionError(msg);
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [emergencyStopUsb]);
+
+  // Switch between Manual and Auto modes
+  const setMode = useCallback(async (mode: 'MANUAL' | 'AUTO') => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'સિસ્ટમ મોડ બદલવામાં નિષ્ફળતા');
+      }
+      return data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'અજ્ઞાત ભૂલ આવી છે';
+      setActionError(msg);
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Update auto thresholds
+  const updateAutoConfig = useCallback(async (config: Partial<SystemState['autoConfig']>) => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/auto-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'ઓટોમેશન સેટિંગ્સ અપડેટ કરવામાં નિષ્ફળતા');
+      }
+      return data;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'અજ્ઞાત ભૂલ આવી છે';
+      setActionError(msg);
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Execute AI Voice & Text Command
+  const executeAiVoiceCommand = useCallback(async (query: string): Promise<AiVoiceCommandResult> => {
+    setIsAiThinking(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/ai/voice-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'AI કમાન્ડ પ્રોસેસ કરવામાં નિષ્ફળતા');
+      }
+      setLastAiResult(data.result);
+      return data.result;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'AI સેવા ઉપલબ્ધ નથી';
+      setActionError(msg);
+      throw err;
+    } finally {
+      setIsAiThinking(false);
+    }
+  }, []);
+
+  // Manual refresh status
+  const refreshStatus = useCallback(async () => {
+    if (webSerial.getStatus() === 'CONNECTED') {
+      await webSerial.requestStatus();
+    }
+    return await fetchStatus(true);
+  }, [fetchStatus]);
+
+  // Update integration and calibration settings
+  const updateIntegrationConfig = useCallback(
+    async (payload: {
+      authToken?: string;
+      requireAuth?: boolean;
+      calibration?: Partial<SystemState['calibration']>;
+    }) => {
+      setIsSubmitting(true);
+      setActionError(null);
+      try {
+        const res = await fetch('/api/integration-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'સેટિંગ્સ અપડેટ કરવામાં નિષ્ફળતા');
+        }
+        await refreshStatus();
+        return data;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'સેટિંગ્સ સેવ નિષ્ફળ';
+        setActionError(msg);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [refreshStatus]
+  );
+
+  return {
+    state,
+    isConnected: isBackendConnected,
+    isControllerConnected,
+    isCheckingConnection,
+    connectionError,
+    retryConnection,
+    isSubmitting,
+    isAiThinking,
+    lastAiResult,
+    actionError,
+    clearActionError: () => setActionError(null),
+    controlPump,
+    setEmergencyStop,
+    setMode,
+    updateAutoConfig,
+    executeAiVoiceCommand,
+    refreshStatus,
+    updateIntegrationConfig,
+    // Web Serial USB Additions
+    usbStatus,
+    usbError,
+    usbTelemetry,
+    isUsbSupported,
+    isIframeEmbedded,
+    isPermissionsDisallowed,
+    connectUsb,
+    disconnectUsb,
+    startUsbFilling,
+    stopUsbPump,
+    emergencyStopUsb,
+    setUsbTarget,
+  };
+}

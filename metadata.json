@@ -1,0 +1,6 @@
+{
+  "name": "HydroSense Dual Tank IoT Manager",
+  "description": "Smart Water Tank Management system for dual tanks using Arduino Mega 2560 and ESP8266 NodeMCU with real-time telemetry, automated level triggers, manual target controls, and fail-safe safety watchdogs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
