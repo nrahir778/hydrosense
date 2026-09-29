@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldCheck, ChevronRight, Cable, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ChevronRight, Cable, Bluetooth, CheckCircle2 } from 'lucide-react';
 import { HardwareConnectionState } from '../types';
-import { UsbConnectionStatus } from '../services/webSerial';
+import { UsbConnectionStatus, SerialConnectionMode } from '../services/webSerial';
 
 interface SchoolProjectBannerProps {
   connectionState: HardwareConnectionState;
@@ -11,7 +11,9 @@ interface SchoolProjectBannerProps {
   onOpenHardware: () => void;
   onOpenSafety: () => void;
   usbStatus?: UsbConnectionStatus;
+  serialMode?: SerialConnectionMode;
   onConnectUsb?: () => void;
+  onConnectBluetooth?: () => void;
   onDisconnectUsb?: () => void;
 }
 
@@ -20,7 +22,9 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
   onOpenHardware,
   onOpenSafety,
   usbStatus = 'DISCONNECTED',
+  serialMode = 'USB',
   onConnectUsb,
+  onConnectBluetooth,
   onDisconnectUsb,
 }) => {
   return (
@@ -28,10 +32,14 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 flex-wrap">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold text-white shadow-xs ${
-            isControllerConnected ? 'bg-emerald-600' : 'bg-slate-600'
+            isControllerConnected
+              ? serialMode === 'BLUETOOTH' ? 'bg-blue-600' : 'bg-emerald-600'
+              : 'bg-slate-600'
           }`}>
-            <Cable className="w-3.5 h-3.5" />
-            {isControllerConnected ? 'Arduino Uno USB Connected' : 'Arduino Uno USB Offline'}
+            {serialMode === 'BLUETOOTH' ? <Bluetooth className="w-3.5 h-3.5" /> : <Cable className="w-3.5 h-3.5" />}
+            {isControllerConnected
+              ? serialMode === 'BLUETOOTH' ? 'HC-05 Bluetooth Connected' : 'Arduino Uno USB Connected'
+              : 'Controller Offline'}
           </span>
           <span className="font-semibold text-slate-900 dark:text-white">
             શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર
@@ -39,17 +47,34 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
           <span aria-hidden="true" className="text-slate-400">·</span>
           <span className="text-slate-600 dark:text-slate-300">
             {isControllerConnected
-              ? 'Arduino Uno સાથે Web Serial API (115200 Baud) દ્વારા સીધો USB સંપર્ક સક્રિય છે.'
-              : 'વાસ્તવિક Arduino Uno હાર્ડવેર જોડાયેલ નથી. લાઈવ સેન્સર ડેટા અને કંટ્રોલ માટે USB કેબલ જોડો.'}
+              ? serialMode === 'BLUETOOTH'
+                ? 'HC-05 Bluetooth Virtual COM Port (9600 Baud) દ્વારા સીધો સંપર્ક સક્રિય છે.'
+                : 'Arduino Uno સાથે Web Serial API (115200 Baud) દ્વારા સીધો USB સંપર્ક સક્રિય છે.'
+              : 'વાસ્તવિક Arduino Uno / HC-05 હાર્ડવેર જોડાયેલ નથી. લાઈવ સેન્સર ડેટા માટે USB અથવા Bluetooth જોડો.'}
           </span>
-          {!isControllerConnected && onConnectUsb && (
-            <button
-              onClick={onConnectUsb}
-              className="ml-1 px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-            >
-              <Cable className="w-3 h-3" />
-              <span>Connect USB</span>
-            </button>
+          {!isControllerConnected && (
+            <div className="inline-flex items-center gap-1.5 ml-1">
+              {onConnectUsb && (
+                <button
+                  onClick={onConnectUsb}
+                  className="px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                  title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
+                >
+                  <Cable className="w-3 h-3" />
+                  <span>Connect USB</span>
+                </button>
+              )}
+              {onConnectBluetooth && (
+                <button
+                  onClick={onConnectBluetooth}
+                  className="px-2.5 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                  title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
+                >
+                  <Bluetooth className="w-3 h-3" />
+                  <span>Connect Bluetooth</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 

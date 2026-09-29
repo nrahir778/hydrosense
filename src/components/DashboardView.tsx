@@ -4,7 +4,7 @@ import {
   PhysicalTankCalibration,
 } from '../types';
 import { TankGraphic } from './TankGraphic';
-import { UsbConnectionStatus, ArduinoTelemetry } from '../services/webSerial';
+import { UsbConnectionStatus, SerialConnectionMode, ArduinoTelemetry } from '../services/webSerial';
 import {
   RotateCw,
   Sliders,
@@ -15,6 +15,7 @@ import {
   RefreshCcw,
   ShieldCheck,
   Cable,
+  Bluetooth,
   Play,
   Square,
   AlertOctagon,
@@ -33,13 +34,15 @@ interface DashboardViewProps {
   }) => Promise<unknown>;
   onNavigateTab: (tab: 'manual' | 'automation' | 'safety' | 'hardware' | 'ai') => void;
   isSubmitting: boolean;
-  // USB Web Serial integration
+  // USB & Bluetooth Web Serial integration
   usbStatus?: UsbConnectionStatus;
+  serialMode?: SerialConnectionMode;
   usbError?: string | null;
   usbTelemetry?: ArduinoTelemetry | null;
   isUsbSupported?: boolean;
   isPermissionsDisallowed?: boolean;
   onConnectUsb?: () => Promise<boolean>;
+  onConnectBluetooth?: () => Promise<boolean>;
   onDisconnectUsb?: () => Promise<void>;
   onStartFilling?: (targetPercent: number) => Promise<boolean>;
   onStopPump?: () => Promise<boolean>;
@@ -54,11 +57,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateTab,
   isSubmitting,
   usbStatus = 'DISCONNECTED',
+  serialMode = 'USB',
   usbError = null,
   usbTelemetry = null,
   isUsbSupported = true,
   isPermissionsDisallowed = false,
   onConnectUsb,
+  onConnectBluetooth,
   onDisconnectUsb,
   onStartFilling,
   onStopPump,
@@ -162,22 +167,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Cable className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                 <span>સિંગલ વોટર ટેન્ક મોનિટરિંગ & કંટ્રોલ સ્ટેશન</span>
               </h2>
-              {/* USB Hardware Connection Badge */}
+              {/* Hardware Connection Badge */}
               {isUsbConnected ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-bold ${
+                  serialMode === 'BLUETOOTH'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-300'
+                    : 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                }`}>
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                  <Cable className="w-4 h-4 text-emerald-600" />
-                  <span>Arduino Uno USB Connected (115200 Baud)</span>
+                  {serialMode === 'BLUETOOTH' ? (
+                    <Bluetooth className="w-4 h-4 text-blue-600" />
+                  ) : (
+                    <Cable className="w-4 h-4 text-emerald-600" />
+                  )}
+                  <span>
+                    {serialMode === 'BLUETOOTH'
+                      ? 'HC-05 Bluetooth Connected (9600 Baud)'
+                      : 'Arduino Uno USB Connected (115200 Baud)'}
+                  </span>
                 </div>
               ) : usbStatus === 'CONNECTING' ? (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold">
                   <RotateCw className="w-4 h-4 animate-spin text-amber-500" />
-                  <span>Connecting to USB...</span>
+                  <span>Connecting...</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold">
                   <span className="w-2 h-2 rounded-full bg-slate-400" />
-                  <span>Controller offline (USB Disconnected)</span>
+                  <span>Controller offline (Disconnected)</span>
                 </div>
               )}
             </div>
@@ -186,26 +203,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
           </div>
 
-          {/* Action Buttons: Connect USB, Refresh, and Settings */}
+          {/* Action Buttons: Connect USB, Connect Bluetooth, Refresh, and Settings */}
           <div className="flex items-center flex-wrap gap-2.5">
             {!isUsbConnected ? (
-              <button
-                onClick={onConnectUsb}
-                disabled={!isUsbSupported || isSubmitting}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all transform active:scale-95 cursor-pointer"
-                title="Arduino Uno USB સીરીયલ પોર્ટ સાથે જોડાઓ"
-              >
-                <Cable className="w-4 h-4" />
-                <span>Connect USB</span>
-              </button>
+              <>
+                <button
+                  onClick={onConnectUsb}
+                  disabled={!isUsbSupported || isSubmitting}
+                  className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all transform active:scale-95 cursor-pointer"
+                  title="Arduino Uno USB સીરીયલ પોર્ટ સાથે જોડાઓ (115200 Baud)"
+                >
+                  <Cable className="w-4 h-4" />
+                  <span>Connect USB</span>
+                </button>
+                {onConnectBluetooth && (
+                  <button
+                    onClick={onConnectBluetooth}
+                    disabled={!isUsbSupported || isSubmitting}
+                    className="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all transform active:scale-95 cursor-pointer"
+                    title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
+                  >
+                    <Bluetooth className="w-4 h-4" />
+                    <span>Connect Bluetooth</span>
+                  </button>
+                )}
+              </>
             ) : (
               <button
                 onClick={onDisconnectUsb}
                 disabled={isSubmitting}
                 className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="USB ડિસ્કનેક્ટ કરો"
+                title={serialMode === 'BLUETOOTH' ? 'HC-05 Bluetooth ડિસ્કનેક્ટ કરો' : 'USB ડિસ્કનેક્ટ કરો'}
               >
-                <span>Disconnect USB</span>
+                <span>{serialMode === 'BLUETOOTH' ? 'Disconnect Bluetooth' : 'Disconnect USB'}</span>
               </button>
             )}
 

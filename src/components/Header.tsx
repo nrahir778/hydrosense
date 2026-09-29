@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldAlert, Sun, Moon, Cpu, GraduationCap, Sparkles, RotateCw, Cable, CheckCircle2, Power } from 'lucide-react';
+import { ShieldAlert, Sun, Moon, Cpu, GraduationCap, Sparkles, RotateCw, Cable, CheckCircle2, Power, Bluetooth } from 'lucide-react';
 import { HardwareConnectionState } from '../types';
-import { UsbConnectionStatus } from '../services/webSerial';
+import { UsbConnectionStatus, SerialConnectionMode } from '../services/webSerial';
 
 export type ActiveTab = 'dashboard' | 'manual' | 'automation' | 'safety' | 'hardware' | 'ai';
 
@@ -17,7 +17,9 @@ interface HeaderProps {
   onToggleTheme: () => void;
   onOpenSafety: () => void;
   usbStatus?: UsbConnectionStatus;
+  serialMode?: SerialConnectionMode;
   onConnectUsb?: () => void;
+  onConnectBluetooth?: () => void;
   onDisconnectUsb?: () => void;
   isUsbSupported?: boolean;
   isPermissionsDisallowed?: boolean;
@@ -35,7 +37,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   onOpenSafety,
   usbStatus = 'DISCONNECTED',
+  serialMode = 'USB',
   onConnectUsb,
+  onConnectBluetooth,
   onDisconnectUsb,
   isUsbSupported = true,
   isPermissionsDisallowed = false,
@@ -171,17 +175,31 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">AI વોઇસ</span>
           </button>
 
-          {/* USB Connection Status & Control */}
+          {/* Serial Connection Status & Controls (USB & HC-05 Bluetooth) */}
           {usbStatus === 'CONNECTED' ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
-              <Cable className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-              <span className="hidden sm:inline">USB Connected</span>
-              <span className="sm:hidden">USB On</span>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+              serialMode === 'BLUETOOTH'
+                ? 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+            }`}>
+              {serialMode === 'BLUETOOTH' ? (
+                <Bluetooth className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+              ) : (
+                <Cable className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+              )}
+              <span className="hidden sm:inline">
+                {serialMode === 'BLUETOOTH' ? 'Bluetooth HC-05 Connected' : 'USB Connected'}
+              </span>
+              <span className="sm:hidden">
+                {serialMode === 'BLUETOOTH' ? 'BT On' : 'USB On'}
+              </span>
               {onDisconnectUsb && (
                 <button
                   onClick={onDisconnectUsb}
-                  className="ml-1 px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold cursor-pointer transition-colors"
-                  title="Arduino Uno USB ડિસ્કનેક્ટ કરો"
+                  className={`ml-1 px-1.5 py-0.5 rounded text-white text-[10px] font-bold cursor-pointer transition-colors ${
+                    serialMode === 'BLUETOOTH' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                  title={serialMode === 'BLUETOOTH' ? 'HC-05 Bluetooth ડિસ્કનેક્ટ કરો' : 'Arduino Uno USB ડિસ્કનેક્ટ કરો'}
                 >
                   Disconnect
                 </button>
@@ -190,13 +208,12 @@ export const Header: React.FC<HeaderProps> = ({
           ) : usbStatus === 'CONNECTING' ? (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold border bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800">
               <RotateCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
-              <span>Connecting USB...</span>
+              <span>Connecting...</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold border bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700">
               <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
-              <span className="hidden sm:inline">USB Offline</span>
-              <span className="sm:hidden">Offline</span>
+              <span className="hidden sm:inline">Offline</span>
               {isPermissionsDisallowed && typeof window !== 'undefined' ? (
                 <a
                   href={window.location.href}
@@ -207,17 +224,32 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <span>Open Tab ↗</span>
                 </a>
-              ) : onConnectUsb ? (
-                <button
-                  onClick={onConnectUsb}
-                  disabled={!isUsbSupported}
-                  className="ml-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                  title="Arduino Uno USB સાથે જોડાઓ"
-                >
-                  <Cable className="w-3 h-3" />
-                  <span>Connect USB</span>
-                </button>
-              ) : null}
+              ) : (
+                <div className="flex items-center gap-1">
+                  {onConnectUsb && (
+                    <button
+                      onClick={onConnectUsb}
+                      disabled={!isUsbSupported}
+                      className="px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
+                    >
+                      <Cable className="w-3 h-3" />
+                      <span>USB</span>
+                    </button>
+                  )}
+                  {onConnectBluetooth && (
+                    <button
+                      onClick={onConnectBluetooth}
+                      disabled={!isUsbSupported}
+                      className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
+                    >
+                      <Bluetooth className="w-3 h-3" />
+                      <span>Bluetooth</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

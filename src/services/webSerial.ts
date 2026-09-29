@@ -4,6 +4,7 @@
  */
 
 export type UsbConnectionStatus = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR';
+export type SerialConnectionMode = 'USB' | 'BLUETOOTH';
 
 export interface ArduinoTelemetry {
   levelPercent: number;        // Actual measured water level (0 - 100%)
@@ -12,7 +13,7 @@ export interface ArduinoTelemetry {
   targetPercent: number;       // Target setpoint reported by Arduino
   lastReceivedAt: number;      // Timestamp of last parsed packet
   isStale: boolean;            // True if no packet received within 3500ms
-  rawLine: string;             // Raw string received from Arduino Uno
+  rawLine: string;             // Raw string received from Arduino Uno / HC-05
 }
 
 export interface SerialErrorDetails {
@@ -21,7 +22,7 @@ export interface SerialErrorDetails {
 }
 
 type TelemetryListener = (data: ArduinoTelemetry) => void;
-type StatusListener = (status: UsbConnectionStatus, error?: SerialErrorDetails | null) => void;
+type StatusListener = (status: UsbConnectionStatus, error?: SerialErrorDetails | null, mode?: SerialConnectionMode) => void;
 type LogListener = (msg: string, type: 'info' | 'rx' | 'tx' | 'error') => void;
 
 class WebSerialService {
@@ -29,6 +30,7 @@ class WebSerialService {
   private reader: any = null;
   private keepReading = false;
   private status: UsbConnectionStatus = 'DISCONNECTED';
+  private mode: SerialConnectionMode = 'USB';
   private lastTelemetry: ArduinoTelemetry | null = null;
   private telemetryListeners: Set<TelemetryListener> = new Set();
   private statusListeners: Set<StatusListener> = new Set();
@@ -84,6 +86,10 @@ class WebSerialService {
     return this.status;
   }
 
+  public getMode(): SerialConnectionMode {
+    return this.mode;
+  }
+
   public getLastTelemetry(): ArduinoTelemetry | null {
     return this.lastTelemetry;
   }
@@ -96,7 +102,7 @@ class WebSerialService {
 
   public onStatus(listener: StatusListener): () => void {
     this.statusListeners.add(listener);
-    listener(this.status, null);
+    listener(this.status, null, this.mode);
     return () => this.statusListeners.delete(listener);
   }
 
@@ -107,7 +113,7 @@ class WebSerialService {
 
   private notifyStatus(status: UsbConnectionStatus, err?: SerialErrorDetails | null) {
     this.status = status;
-    this.statusListeners.forEach((fn) => fn(status, err));
+    this.statusListeners.forEach((fn) => fn(status, err, this.mode));
   }
 
   private notifyTelemetry(data: ArduinoTelemetry) {
@@ -120,10 +126,12 @@ class WebSerialService {
   }
 
   /**
-   * Request serial port and open with 115200 baud
+   * Request serial port and open with specified mode:
+   * - USB: 115200 baud (Direct Arduino Uno USB)
+   * - BLUETOOTH: 9600 baud (HC-05 Windows Bluetooth virtual COM port)
    * MUST be invoked directly from a user gesture (e.g. button click)
    */
-  public async connect(): Promise<boolean> {
+  public async connect(mode: SerialConnectionMode = 'USB'): Promise<boolean> {
     if (!this.isSupported()) {
       const err: SerialErrorDetails = {
         code: 'UNSUPPORTED',
@@ -138,7 +146,7 @@ class WebSerialService {
     if (this.isPermissionsPolicyDisallowed()) {
       const err: SerialErrorDetails = {
         code: 'PERMISSIONS_POLICY_DISALLOWED',
-        message: 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino Uno સાથે કનેક્ટ કરવા માટે એપને અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
+        message: 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
       };
       this.log(err.message, 'error');
       this.notifyStatus('ERROR', err);
@@ -149,22 +157,26 @@ class WebSerialService {
       return true;
     }
 
+    this.mode = mode;
+    const baudRate = mode === 'BLUETOOTH' ? 9600 : 115200;
+    const modeLabel = mode === 'BLUETOOTH' ? 'HC-05 Bluetooth (9600 Baud)' : 'Arduino Uno USB (115200 Baud)';
+
     this.notifyStatus('CONNECTING', null);
-    this.log('Arduino Uno USB પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...', 'info');
+    this.log(`${modeLabel} સીરીયલ પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...`, 'info');
 
     try {
       // 1. Request port from user
       this.port = await (navigator as any).serial.requestPort({
-        // Arduino Uno USB VID: 0x2341 (Arduino SA) or 0x1A86 (CH340 clone) or 0x0403 (FTDI)
+        // Lets the user select Arduino USB COM port or HC-05 Windows Bluetooth virtual COM port
       });
 
-      // 2. Open port at 115200 baud
-      this.log('USB પોર્ટ ઓપન થઈ રહ્યું છે (Baud Rate: 115200)...', 'info');
-      await this.port.open({ baudRate: 115200 });
+      // 2. Open port at appropriate baud rate
+      this.log(`સીરીયલ પોર્ટ ઓપન થઈ રહ્યું છે (Baud Rate: ${baudRate})...`, 'info');
+      await this.port.open({ baudRate });
 
       this.keepReading = true;
       this.notifyStatus('CONNECTED', null);
-      this.log('Arduino Uno USB સાથે સફળતાપૂર્વક જોડાઈ ગયું (115200 Baud)!', 'info');
+      this.log(`${modeLabel} સાથે સફળતાપૂર્વક જોડાઈ ગયું!`, 'info');
 
       // 3. Start reader loop
       this.startReadingLoop();
@@ -194,7 +206,7 @@ class WebSerialService {
             this.lastTelemetry = { ...this.lastTelemetry, isStale };
             this.notifyTelemetry(this.lastTelemetry);
             if (isStale) {
-              this.log('ચેતવણી: Arduino માંથી છેલ્લી 3.5 સેકન્ડથી કોઈ ડેટા મળ્યો નથી (Stale data)', 'error');
+              this.log(`ચેતવણી: ${this.mode === 'BLUETOOTH' ? 'HC-05' : 'Arduino'} માંથી છેલ્લી 3.5 સેકન્ડથી કોઈ ડેટા મળ્યો નથી (Stale data)`, 'error');
             }
           }
         }
@@ -214,7 +226,7 @@ class WebSerialService {
       if (isPolicyDisallowed) {
         details = {
           code: 'PERMISSIONS_POLICY_DISALLOWED',
-          message: 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino Uno સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
+          message: 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
@@ -228,7 +240,7 @@ class WebSerialService {
       } else if (err.name === 'InvalidStateError' || (err.message && err.message.includes('already open'))) {
         details = {
           code: 'BUSY',
-          message: 'આ COM પોર્ટ પહેલેથી જ ખુલ્લો છે અથવા Arduino IDE Serial Monitor વાપરી રહ્યું છે. કૃપા કરીને અન્ય પ્રોગ્રામ બંધ કરો.',
+          message: 'આ COM પોર્ટ પહેલેથી જ ખુલ્લો છે અથવા અન્ય પ્રોગ્રામ વાપરી રહ્યું છે. કૃપા કરીને Arduino IDE Serial Monitor કે અન્ય સોફ્ટવેર બંધ કરો.',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
@@ -242,7 +254,7 @@ class WebSerialService {
       } else {
         details = {
           code: 'PORT_ERROR',
-          message: err.message || 'USB પોર્ટ ઓપન કરવામાં ભૂલ આવી.',
+          message: err.message || 'સીરીયલ પોર્ટ ઓપન કરવામાં ભૂલ આવી.',
         };
         this.log(`ભૂલ: ${details.message}`, 'error');
         this.notifyStatus('ERROR', details);
@@ -272,10 +284,10 @@ class WebSerialService {
             const textChunk = decoder.decode(value, { stream: true });
             lineBuffer += textChunk;
 
-            // Split on newlines
+            // Split on newlines (\n or \r\n)
             let newlineIndex: number;
             while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
-              const rawLine = lineBuffer.slice(0, newlineIndex).trim();
+              const rawLine = lineBuffer.slice(0, newlineIndex).replace(/[\r\n]/g, '').trim();
               lineBuffer = lineBuffer.slice(newlineIndex + 1);
               if (rawLine.length > 0) {
                 this.handleIncomingLine(rawLine);
@@ -302,31 +314,37 @@ class WebSerialService {
   }
 
   /**
-   * Parse protocol lines from Arduino Uno:
-   * Format: LEVEL:45,DISTANCE:7.28,PUMP:ON,TARGET:50
-   * or LEVEL:45.0,DISTANCE:7.28,PUMP:OFF,TARGET:50
+   * Parse protocol lines from Arduino Uno or HC-05 Bluetooth:
+   * Format: DISTANCE:4.37,LEVEL:81.8%
+   * or: LEVEL:45,DISTANCE:7.28,PUMP:ON,TARGET:50
    */
   private handleIncomingLine(line: string) {
     this.log(line, 'rx');
 
+    const upper = line.toUpperCase();
     // Check for standard telemetry line
-    if (line.includes('LEVEL:') && line.includes('DISTANCE:')) {
+    if (upper.includes('LEVEL:') && upper.includes('DISTANCE:')) {
       const parts = line.split(',');
       let level = NaN;
       let distance = NaN;
-      let pump: 'ON' | 'OFF' = 'OFF';
-      let target = 85;
+      let pump: 'ON' | 'OFF' = this.lastTelemetry?.pumpStatus || 'OFF';
+      let target = this.lastTelemetry?.targetPercent || 85;
 
       for (const part of parts) {
-        const [key, val] = part.split(':').map((s) => s.trim());
+        const colonIdx = part.indexOf(':');
+        if (colonIdx === -1) continue;
+        const key = part.slice(0, colonIdx).trim().toUpperCase();
+        const rawVal = part.slice(colonIdx + 1).trim();
+        const cleanVal = rawVal.replace(/%/g, '').trim();
+
         if (key === 'LEVEL') {
-          level = parseFloat(val);
+          level = parseFloat(cleanVal);
         } else if (key === 'DISTANCE') {
-          distance = parseFloat(val);
+          distance = parseFloat(cleanVal);
         } else if (key === 'PUMP') {
-          pump = val.toUpperCase() === 'ON' ? 'ON' : 'OFF';
+          pump = cleanVal.toUpperCase() === 'ON' ? 'ON' : 'OFF';
         } else if (key === 'TARGET') {
-          target = parseInt(val, 10);
+          target = parseInt(cleanVal, 10);
         }
       }
 
@@ -343,8 +361,8 @@ class WebSerialService {
         this.notifyTelemetry(telemetry);
       }
     } else if (line.startsWith('ALERT:') || line.startsWith('ERROR:') || line.startsWith('INFO:')) {
-      // Diagnostic messages from Arduino Uno
-      this.log(`Arduino Msg: ${line}`, 'info');
+      // Diagnostic messages from Arduino Uno / HC-05
+      this.log(`Device Msg: ${line}`, 'info');
     }
   }
 
@@ -367,7 +385,7 @@ class WebSerialService {
       this.log(trimmed, 'tx');
       return true;
     } catch (err: any) {
-      console.error('Error sending serial command:', err);
+      console.warn('Error sending serial command:', err);
       this.log(`કમાન્ડ લખવામાં ભૂલ: ${err.message}`, 'error');
       return false;
     }
@@ -423,7 +441,8 @@ class WebSerialService {
    * Disconnect cleanly
    */
   public async disconnect(): Promise<void> {
-    this.log('USB ડિસ્કનેક્ટ કરી રહ્યું છે...', 'info');
+    const modeLabel = this.mode === 'BLUETOOTH' ? 'HC-05 Bluetooth' : 'Arduino Uno USB';
+    this.log(`${modeLabel} ડિસ્કનેક્ટ કરી રહ્યું છે...`, 'info');
     // If pump was running, send stop first
     if (this.lastTelemetry && this.lastTelemetry.pumpStatus === 'ON') {
       try {
@@ -463,11 +482,12 @@ class WebSerialService {
       this.port = null;
     }
 
+    const modeLabel = this.mode === 'BLUETOOTH' ? 'HC-05 Bluetooth' : 'Arduino Uno USB';
     this.notifyStatus('DISCONNECTED', {
       code: 'DISCONNECTED',
       message: reason,
     });
-    this.log(`Arduino Uno USB ડિસ્કનેક્ટ થયું (${reason}).`, 'info');
+    this.log(`${modeLabel} ડિસ્કનેક્ટ થયું (${reason}).`, 'info');
   }
 
   private cleanup() {

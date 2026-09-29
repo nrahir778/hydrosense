@@ -36,14 +36,16 @@ export default function App() {
     executeAiVoiceCommand,
     refreshStatus,
     updateIntegrationConfig,
-    // Web Serial USB Additions
+    // Web Serial USB & Bluetooth Additions
     usbStatus,
+    serialMode,
     usbError,
     usbTelemetry,
     isUsbSupported,
     isIframeEmbedded,
     isPermissionsDisallowed,
     connectUsb,
+    connectBluetooth,
     disconnectUsb,
     startUsbFilling,
     stopUsbPump,
@@ -91,7 +93,9 @@ export default function App() {
         onToggleTheme={toggleTheme}
         onOpenSafety={() => setActiveTab('safety')}
         usbStatus={usbStatus}
+        serialMode={serialMode}
         onConnectUsb={connectUsb}
+        onConnectBluetooth={connectBluetooth}
         onDisconnectUsb={disconnectUsb}
         isUsbSupported={isUsbSupported}
         isPermissionsDisallowed={isPermissionsDisallowed}
@@ -106,24 +110,26 @@ export default function App() {
         onOpenHardware={() => setActiveTab('hardware')}
         onOpenSafety={() => setActiveTab('safety')}
         usbStatus={usbStatus}
+        serialMode={serialMode}
         onConnectUsb={connectUsb}
+        onConnectBluetooth={connectBluetooth}
         onDisconnectUsb={disconnectUsb}
       />
 
-      {/* Informative Hardware Standby & Offline Banner with USB Connection Option */}
+      {/* Informative Hardware Standby & Offline Banner with USB & Bluetooth Connection Options */}
       {!isControllerConnected && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200/80 dark:border-amber-900/50 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-              <span className="font-bold text-slate-900 dark:text-white">Arduino Uno Offline:</span>
+              <span className="font-bold text-slate-900 dark:text-white">Controller Offline:</span>
               <span>
                 {usbError
                   ? usbError
-                  : 'Arduino Uno USB હાર્ડવેર હજી જોડાયેલ નથી. લાઈવ રીડિંગ્સ અને પંપ કંટ્રોલ માટે "Connect USB" પર ક્લિક કરો.'}
+                  : 'Arduino Uno (USB) અથવા HC-05 (Bluetooth) હાર્ડવેર હજી જોડાયેલ નથી. લાઈવ રીડિંગ્સ અને પંપ કંટ્રોલ માટે કનેક્ટ કરો.'}
               </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
               {(isPermissionsDisallowed || (usbError && (usbError.includes('iframe') || usbError.includes('સુરક્ષા પ્રતિબંધ') || usbError.includes('પોલિસી')))) && typeof window !== 'undefined' && (
                 <a
                   href={window.location.href}
@@ -139,9 +145,17 @@ export default function App() {
                 onClick={connectUsb}
                 disabled={!isUsbSupported || isSubmitting}
                 className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-                title="Arduino Uno USB સાથે જોડાઓ"
+                title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
               >
                 <span>Connect USB</span>
+              </button>
+              <button
+                onClick={connectBluetooth}
+                disabled={!isUsbSupported || isSubmitting}
+                className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
+              >
+                <span>Connect Bluetooth</span>
               </button>
             </div>
           </div>
@@ -158,11 +172,13 @@ export default function App() {
             onNavigateTab={(tab) => setActiveTab(tab)}
             isSubmitting={isSubmitting}
             usbStatus={usbStatus}
+            serialMode={serialMode}
             usbError={usbError}
             usbTelemetry={usbTelemetry}
             isUsbSupported={isUsbSupported}
             isPermissionsDisallowed={isPermissionsDisallowed}
             onConnectUsb={connectUsb}
+            onConnectBluetooth={connectBluetooth}
             onDisconnectUsb={disconnectUsb}
             onStartFilling={startUsbFilling}
             onStopPump={stopUsbPump}
@@ -179,11 +195,13 @@ export default function App() {
             actionError={actionError}
             onClearError={clearActionError}
             usbStatus={usbStatus}
+            serialMode={serialMode}
             usbError={usbError}
             usbTelemetry={usbTelemetry}
             isUsbSupported={isUsbSupported}
             isPermissionsDisallowed={isPermissionsDisallowed}
             onConnectUsb={connectUsb}
+            onConnectBluetooth={connectBluetooth}
             onDisconnectUsb={disconnectUsb}
             onStartFilling={startUsbFilling}
             onStopPump={stopUsbPump}

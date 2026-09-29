@@ -84,11 +84,34 @@ export const USB_CONNECTION_GUIDE = `
    A COM port cannot be opened by two programs simultaneously.
 
 4. Click 'Connect USB' in the Web App:
-   When the browser prompt appears, select your Arduino Uno (or USB-SERIAL CH340 / FTDI) and click 'Connect'.
+   When the browser prompt appears, select your Arduino Uno (or USB-SERIAL CH340 / FTDI) and click 'Connect' (115200 Baud).
 
 5. Automatic Telemetry & Control:
-   The web app will communicate at 115200 Baud, automatically receiving live sensor readings and sending target fill commands.
+   The web app will communicate at 115200 Baud, automatically receiving live sensor readings ("DISTANCE:4.37,LEVEL:81.8%") and sending target fill commands.
 
 6. If running in an embedded preview / Iframe:
    Browser security restricts Web Serial inside iframes (Permissions Policy). Click 'Open in Direct Tab' (નવી ટેબમાં ખોલો) to open the app standalone, where Web Serial port selection is fully enabled.
+`;
+
+export const BLUETOOTH_CONNECTION_GUIDE = `
+1. Pair HC-05 with Windows PC:
+   - Power up HC-05 (VCC to 5V, GND to GND, LED blinks rapidly).
+   - Go to Windows Settings -> Bluetooth & devices -> Add device -> Bluetooth.
+   - Select 'HC-05' and enter pairing PIN (usually 1234 or 0000).
+   - Once paired, Windows creates outgoing Virtual COM Ports (e.g., COM4, COM5).
+
+2. HC-05 Wiring with Arduino:
+   - HC-05 VCC -> Arduino 5V
+   - HC-05 GND -> Arduino GND
+   - HC-05 TXD -> Arduino Pin 0 (RX) [or SoftwareSerial RX]
+   - HC-05 RXD -> Arduino Pin 1 (TX) via voltage divider (1k/2k resistors since HC-05 RX is 3.3V logic)
+
+3. Default Baud Rate:
+   - HC-05 standard SPP communication is 9600 Baud.
+   - The web app automatically configures 9600 Baud when you click 'Connect Bluetooth'.
+
+4. Click 'Connect Bluetooth' in Web App:
+   - Click 'Connect Bluetooth' in the top header or dashboard.
+   - When the browser serial picker appears, select the outgoing Bluetooth COM Port and click 'Connect'.
+   - The app will start receiving live data ("DISTANCE:4.37,LEVEL:81.8%") and display real-time tank animation!
 `;

@@ -5,6 +5,7 @@ import {
   webSerial,
   ArduinoTelemetry,
   UsbConnectionStatus,
+  SerialConnectionMode,
   SerialErrorDetails,
 } from '../services/webSerial';
 
@@ -19,8 +20,9 @@ export function useHydroSense() {
   const [lastAiResult, setLastAiResult] = useState<AiVoiceCommandResult | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Web Serial State
+  // Web Serial State (USB & HC-05 Bluetooth Virtual COM)
   const [usbStatus, setUsbStatus] = useState<UsbConnectionStatus>(() => webSerial.getStatus());
+  const [serialMode, setSerialMode] = useState<SerialConnectionMode>(() => webSerial.getMode());
   const [usbError, setUsbError] = useState<string | null>(null);
   const [usbTelemetry, setUsbTelemetry] = useState<ArduinoTelemetry | null>(() => webSerial.getLastTelemetry());
   const isUsbSupported = webSerial.isSupported();
@@ -35,22 +37,33 @@ export function useHydroSense() {
     usbStatus === 'CONNECTED' &&
     Boolean(usbTelemetry && !usbTelemetry.isStale && state.tank?.hasRealTelemetry);
 
-  // Connect Web Serial (Requires user click gesture)
+  // Connect Web Serial via USB (115200 Baud)
   const connectUsb = useCallback(async (): Promise<boolean> => {
     setIsSubmitting(true);
     setActionError(null);
     setUsbError(null);
     try {
-      const ok = await webSerial.connect();
-      if (!ok) {
-        const lastErr = webSerial.getStatus() === 'ERROR';
-        if (lastErr) {
-          // Keep current usbError
-        }
-      }
+      const ok = await webSerial.connect('USB');
       return ok;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'USB પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
+      setUsbError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Connect Web Serial via HC-05 Bluetooth Virtual COM Port (9600 Baud)
+  const connectBluetooth = useCallback(async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setUsbError(null);
+    try {
+      const ok = await webSerial.connect('BLUETOOTH');
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'HC-05 Bluetooth COM પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
       setUsbError(msg);
       return false;
     } finally {
@@ -68,11 +81,11 @@ export function useHydroSense() {
     }
   }, []);
 
-  // Start Filling via USB (TARGET:xx then START)
+  // Start Filling via USB/Bluetooth (TARGET:xx then START)
   const startUsbFilling = useCallback(async (targetPercent: number): Promise<boolean> => {
     setActionError(null);
     if (webSerial.getStatus() !== 'CONNECTED') {
-      const err = 'Arduino Uno USB સાથે જોડાયેલ નથી. કૃપા કરીને પહેલા "Connect USB" પર ક્લિક કરો.';
+      const err = 'કંટ્રોલર (USB/Bluetooth) જોડાયેલ નથી. કૃપા કરીને પહેલા કનેક્ટ કરો.';
       setActionError(err);
       return false;
     }
@@ -148,8 +161,11 @@ export function useHydroSense() {
 
   // WebSerial Subscriptions
   useEffect(() => {
-    const unsubStatus = webSerial.onStatus((status, err) => {
+    const unsubStatus = webSerial.onStatus((status, err, mode) => {
       setUsbStatus(status);
+      if (mode) {
+        setSerialMode(mode);
+      }
       if (err) {
         setUsbError(err.message);
         if (err.code === 'PERMISSIONS_POLICY_DISALLOWED') {
@@ -190,7 +206,7 @@ export function useHydroSense() {
       setUsbTelemetry(telemetry);
       setState((prev) => {
         const isStale = telemetry.isStale;
-        const validSensor = !isStale && telemetry.distanceCm >= 1.0 && telemetry.distanceCm <= 35.0;
+        const validSensor = !isStale && telemetry.distanceCm >= 0.5 && telemetry.distanceCm <= 400.0;
         const hwStatus = isStale
           ? 'OFFLINE'
           : validSensor
@@ -592,14 +608,16 @@ export function useHydroSense() {
     executeAiVoiceCommand,
     refreshStatus,
     updateIntegrationConfig,
-    // Web Serial USB Additions
+    // Web Serial USB & Bluetooth Additions
     usbStatus,
+    serialMode,
     usbError,
     usbTelemetry,
     isUsbSupported,
     isIframeEmbedded,
     isPermissionsDisallowed,
     connectUsb,
+    connectBluetooth,
     disconnectUsb,
     startUsbFilling,
     stopUsbPump,

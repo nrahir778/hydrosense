@@ -3,6 +3,7 @@ import {
   ARDUINO_UNO_PINOUT,
   RELAY_SAFETY_NOTES,
   USB_CONNECTION_GUIDE,
+  BLUETOOTH_CONNECTION_GUIDE,
 } from '../hardware/hardwareDocs';
 import {
   Download,
@@ -13,6 +14,7 @@ import {
   ShieldAlert,
   Code2,
   Cable,
+  Bluetooth,
   AlertTriangle,
   ExternalLink,
   BookOpen,
@@ -525,6 +527,17 @@ void beepAlarm(int count) {
                 </p>
               </div>
             </div>
+
+            {/* HC-05 Bluetooth Connection Section */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Bluetooth className="w-4 h-4 text-blue-500" />
+                <span>HC-05 Windows Bluetooth Virtual COM Port સેટઅપ (9600 Baud)</span>
+              </h4>
+              <pre className="p-4 rounded-xl bg-slate-900 text-blue-200 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed border border-blue-900/40">
+                {BLUETOOTH_CONNECTION_GUIDE}
+              </pre>
+            </div>
           </div>
         </div>
       )}
@@ -550,12 +563,22 @@ void beepAlarm(int count) {
               </div>
 
               <div className="font-semibold text-slate-800 dark:text-slate-200 pt-2">
-                ૨. Arduino Uno તરફથી આવતો ટેલિમેટ્રી પ્રતિસાદ (RX):
+                ૨. Arduino Uno / HC-05 તરફથી આવતો ટેલિમેટ્રી પ્રતિસાદ (RX):
               </div>
-              <div className="p-4 rounded-xl bg-slate-950 font-mono text-sky-300 space-y-1">
-                <div>LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:50\n</div>
-                <div className="text-slate-500 text-[11px] pt-1">
-                  અર્થ: સ્તર=૪૫.૦%, અંતર=૭.૨૮ સેમી, પંપ=ચાલુ (ON), લક્ષ્યાંક=૫૦%
+              <div className="p-4 rounded-xl bg-slate-950 font-mono text-sky-300 space-y-3">
+                <div>
+                  <div className="text-emerald-400 font-bold">ફોર્મેટ ૧ (સ્ટાન્ડર્ડ):</div>
+                  <div>DISTANCE:4.37,LEVEL:81.8%\n</div>
+                  <div className="text-slate-400 text-[11px]">
+                    અર્થ: અલ્ટ્રાસોનિક અંતર=૪.૩૭ સેમી, ટાંકી વોટર લેવલ=૮૧.૮%
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="text-emerald-400 font-bold">ફોર્મેટ ૨ (વિગતવાર):</div>
+                  <div>LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:50\n</div>
+                  <div className="text-slate-400 text-[11px]">
+                    અર્થ: સ્તર=૪૫.૦%, અંતર=૭.૨૮ સેમી, પંપ=ચાલુ (ON), લક્ષ્યાંક=૫૦%
+                  </div>
                 </div>
               </div>
             </div>
