@@ -143,21 +143,16 @@ class WebSerialService {
   }
 
   /**
-   * Request serial port and open with specified mode:
-   * - USB: 115200 baud (Direct Arduino Uno USB, works on Desktop & Android USB-OTG)
-   * - BLUETOOTH: 9600 baud (HC-05 Windows Virtual COM port or Android Bluetooth RFCOMM / BLE)
-   * MUST be invoked directly from a user gesture (e.g. button click)
+   * Connect via Web Serial API (Direct Arduino Uno USB, 115200 Baud)
+   * MUST be invoked directly from a user gesture (e.g. "Connect USB" button)
    */
-  public async connect(mode: SerialConnectionMode = 'USB'): Promise<boolean> {
+  public async connectUsb(): Promise<boolean> {
     const isAndroid = isAndroidDevice();
-    const hasSerial = this.isWebSerialSupported();
-    const hasBluetooth = this.isWebBluetoothSupported();
-
-    if (!hasSerial && !hasBluetooth) {
+    if (!this.isWebSerialSupported()) {
       const err: SerialErrorDetails = {
         code: 'UNSUPPORTED',
         message: isAndroid
-          ? 'આ એન્ડ્રોઇડ બ્રાઉઝરમાં Web Serial અથવા Web Bluetooth ઉપલબ્ધ નથી. કૃપા કરીને Android પર Google Chrome વાપરો.'
+          ? 'આ Android બ્રાઉઝરમાં Web Serial API ઉપલબ્ધ નથી. કૃપા કરીને Android પર Google Chrome વાપરો.'
           : 'Web Serial API આ બ્રાઉઝરમાં ઉપલબ્ધ નથી. કૃપા કરીને Google Chrome, Edge અથવા Opera વાપરો.',
       };
       this.log(err.message, 'error');
@@ -170,8 +165,8 @@ class WebSerialService {
       const err: SerialErrorDetails = {
         code: 'PERMISSIONS_POLICY_DISALLOWED',
         message: isAndroid
-          ? 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે સીરીયલ બ્લોક છે. Android પર HC-05 કનેક્ટ કરવા માટે એપને નવી ટેબ ("Open in Direct Tab") માં ખોલો.'
-          : 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
+          ? 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે Web Serial બ્લોક છે. Android પર વાપરવા માટે "Open in Direct Tab" દબાવો.'
+          : 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino Uno સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in Direct Tab) માં ખોલો.',
       };
       this.log(err.message, 'error');
       this.notifyStatus('ERROR', err);
@@ -182,51 +177,22 @@ class WebSerialService {
       return true;
     }
 
-    this.mode = mode;
-    const baudRate = mode === 'BLUETOOTH' ? 9600 : 115200;
-    const modeLabel = mode === 'BLUETOOTH'
-      ? isAndroid ? 'HC-05 Android Bluetooth (9600 Baud)' : 'HC-05 Bluetooth (9600 Baud)'
-      : 'Arduino Uno USB (115200 Baud)';
-
-    // If Bluetooth is requested and Web Serial is not available on this device, but Web Bluetooth is:
-    if (mode === 'BLUETOOTH' && !hasSerial && hasBluetooth) {
-      return await this.connectWebBluetooth();
-    }
-
+    this.mode = 'USB';
+    const baudRate = 115200;
     this.notifyStatus('CONNECTING', null);
-    this.log(`${modeLabel} પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...`, 'info');
+    this.log('Arduino Uno USB (115200 Baud) પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...', 'info');
 
     try {
-      // 1. Request port from user
-      if (mode === 'BLUETOOTH') {
-        try {
-          // On Android Chrome & Desktop, passing allowedBluetoothServiceClassIds allows selecting HC-05 SPP
-          this.port = await (navigator as any).serial.requestPort({
-            allowedBluetoothServiceClassIds: [
-              0x1101, // Standard Serial Port Profile (SPP) alias
-              '00001101-0000-1000-8000-00805f9b34fb', // Standard 128-bit SPP UUID
-              'serial_port',
-            ],
-          });
-        } catch (optionsErr: any) {
-          // Fallback if browser doesn't accept allowedBluetoothServiceClassIds
-          if (optionsErr && (optionsErr.name === 'TypeError' || (optionsErr.message && optionsErr.message.includes('allowedBluetoothServiceClassIds')))) {
-            this.port = await (navigator as any).serial.requestPort();
-          } else {
-            throw optionsErr;
-          }
-        }
-      } else {
-        this.port = await (navigator as any).serial.requestPort();
-      }
+      // 1. Request port from user using Web Serial API
+      this.port = await (navigator as any).serial.requestPort();
 
-      // 2. Open port at appropriate baud rate
+      // 2. Open port at 115200 baud
       this.log(`સીરીયલ પોર્ટ ઓપન થઈ રહ્યું છે (Baud Rate: ${baudRate})...`, 'info');
       await this.port.open({ baudRate });
 
       this.keepReading = true;
       this.notifyStatus('CONNECTED', null);
-      this.log(`${modeLabel} સાથે સફળતાપૂર્વક જોડાઈ ગયું!`, 'info');
+      this.log('Arduino Uno USB સાથે સફળતાપૂર્વક જોડાઈ ગયું! (115200 Baud)', 'info');
 
       // 3. Start reader loop
       this.startReadingLoop();
@@ -249,41 +215,34 @@ class WebSerialService {
           code: 'PERMISSIONS_POLICY_DISALLOWED',
           message: isAndroid
             ? 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્લોક છે. Android પર વાપરવા માટે "Open in Direct Tab" દબાવો.'
-            : 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
+            : 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. નવી અલગ વિન્ડો/ટેબ (Open in Direct Tab) માં ખોલો.',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
       } else if (err.name === 'NotFoundError') {
         details = {
           code: 'NOT_ALLOWED',
-          message: mode === 'BLUETOOTH' && isAndroid
-            ? 'કોઈ HC-05 ડિવાઇસ પસંદ કર્યું નથી. ખાતરી કરો કે ફોનમાં Android Settings -> Bluetooth માં જઈને HC-05 પેર કર્યું છે (PIN: 1234 અથવા 0000).'
-            : 'કોઈ પોર્ટ પસંદ કરવામાં આવ્યો નથી (User cancelled).',
+          message: 'કોઈ USB પોર્ટ પસંદ કરવામાં આવ્યો નથી (User cancelled).',
         };
         this.notifyStatus('DISCONNECTED', details);
       } else if (err.name === 'InvalidStateError' || (err.message && err.message.includes('already open'))) {
         details = {
           code: 'BUSY',
-          message: 'આ COM પોર્ટ પહેલેથી જ ખુલ્લો છે અથવા અન્ય પ્રોગ્રામ વાપરી રહ્યું છે. કૃપા કરીને Arduino IDE Serial Monitor કે અન્ય સોફ્ટવેર બંધ કરો.',
+          message: 'આ COM પોર્ટ પહેલેથી જ ખુલ્લો છે અથવા અન્ય પ્રોગ્રામ વાપરી રહ્યું છે. કૃપા કરીને Arduino IDE Serial Monitor બંધ કરો.',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
       } else if (err.name === 'NotAllowedError') {
         details = {
           code: 'NOT_ALLOWED',
-          message: 'Serial પોર્ટની પરવાનગી નકારવામાં આવી (Permission denied).',
+          message: 'USB પોર્ટની પરવાનગી નકારવામાં આવી (Permission denied).',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
       } else {
-        // If mode is Bluetooth and Web Serial failed on Android, attempt Web Bluetooth fallback
-        if (mode === 'BLUETOOTH' && hasBluetooth) {
-          this.log('Web Serial અનિશ્ચિત, Web Bluetooth દ્વારા પ્રયાસ કરી રહ્યું છે...', 'info');
-          return await this.connectWebBluetooth();
-        }
         details = {
           code: 'PORT_ERROR',
-          message: err.message || 'સીરીયલ પોર્ટ ઓપન કરવામાં ભૂલ આવી.',
+          message: err.message || 'USB સીરીયલ પોર્ટ ઓપન કરવામાં ભૂલ આવી.',
         };
         this.log(`ભૂલ: ${details.message}`, 'error');
         this.notifyStatus('ERROR', details);
@@ -295,14 +254,32 @@ class WebSerialService {
   }
 
   /**
-   * Connect via Web Bluetooth (BLE GATT) fallback for Android or BLE modules
+   * Connect via Bluetooth (Dedicated Bluetooth Connection Handler)
+   * MUST NOT call navigator.serial.requestPort() to avoid opening the USB serial port chooser.
+   * Handles Web Bluetooth API (BLE GATT) and explains HC-05 Classic SPP limitation & compatible Android methods.
    */
-  public async connectWebBluetooth(): Promise<boolean> {
+  public async connectBluetooth(): Promise<boolean> {
     const isAndroid = isAndroidDevice();
+    this.mode = 'BLUETOOTH';
+
+    // Verify Web Bluetooth API support
+    if (!this.isWebBluetoothSupported()) {
+      const err: SerialErrorDetails = {
+        code: 'UNSUPPORTED',
+        message: isAndroid
+          ? 'આ બ્રાઉઝરમાં Web Bluetooth ઉપલબ્ધ નથી. નોંધ: HC-05 મોડ્યુલ Bluetooth Classic (SPP) વાપરે છે, જે સ્ટાન્ડર્ડ Web Bluetooth માં સપોર્ટેડ નથી. Android પર સુસંગત રીત: Arduino Uno ને USB-OTG કેબલ વડે જોડીને "Connect USB" વાપરો (Web Serial API દ્વારા Android Chrome માં સીધું લાઈવ કામ કરે છે).'
+          : 'આ બ્રાઉઝરમાં Web Bluetooth ઉપલબ્ધ નથી. નોંધ: HC-05 મોડ્યુલ Bluetooth Classic (SPP) વાપરે છે, જે સ્ટાન્ડર્ડ Web Bluetooth માં સપોર્ટેડ નથી. કૃપા કરીને Arduino Uno ને USB કેબલ વડે જોડીને "Connect USB" વાપરો.',
+      };
+      this.log(err.message, 'error');
+      this.notifyStatus('ERROR', err);
+      return false;
+    }
+
     this.notifyStatus('CONNECTING', null);
-    this.log('Web Bluetooth દ્વારા HC-05 / BLE ડિવાઇસ સ્કેન કરી રહ્યું છે...', 'info');
+    this.log('Web Bluetooth ડિવાઇસ સિલેક્ટર ખોલી રહ્યું છે...', 'info');
 
     try {
+      // Standard Web Bluetooth API: scans for BLE peripherals with UART services
       const UART_SERVICES = [
         '0000ffe0-0000-1000-8000-00805f9b34fb', // Standard HM-10 / HC-08 / BLE Serial
         '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
@@ -333,7 +310,7 @@ class WebSerialService {
       }
 
       if (!service) {
-        throw new Error('સુસંગત Serial/UART સર્વિસ મળી નથી.');
+        throw new Error('આ ડિવાઇસમાં સુસંગત BLE UART સર્વિસ મળી નથી. HC-05 એ Bluetooth Classic (SPP) મોડ્યુલ છે જે સ્ટાન્ડર્ડ Web Bluetooth GATT ને સપોર્ટ કરતું નથી.');
       }
 
       const characteristics = await service.getCharacteristics();
@@ -344,6 +321,10 @@ class WebSerialService {
         if (char.properties.write || char.properties.writeWithoutResponse) {
           this.txCharacteristic = char;
         }
+      }
+
+      if (!this.rxCharacteristic && !this.txCharacteristic) {
+        throw new Error('Bluetooth UART Characteristics મળ્યા નથી.');
       }
 
       if (this.rxCharacteristic) {
@@ -366,34 +347,47 @@ class WebSerialService {
       }
 
       this.keepReading = true;
-      this.mode = 'BLUETOOTH';
       this.notifyStatus('CONNECTED', null);
-      this.log(`Bluetooth (${this.bluetoothDevice.name || 'HC-05'}) સાથે સફળતાપૂર્વક જોડાઈ ગયું!`, 'info');
+      this.log(`Bluetooth (${this.bluetoothDevice.name || 'BLE'}) સાથે સફળતાપૂર્વક જોડાઈ ગયું!`, 'info');
 
       this.setupHeartbeat();
       return true;
     } catch (err: any) {
       console.warn('Web Bluetooth notice:', err);
       let details: SerialErrorDetails;
+
       if (err.name === 'NotFoundError') {
+        // User cancelled or HC-05 was not listed in BLE scan
         details = {
-          code: 'NOT_ALLOWED',
+          code: 'UNSUPPORTED',
           message: isAndroid
-            ? 'કોઈ Bluetooth ડિવાઇસ પસંદ કર્યું નથી. ખાતરી કરો કે ફોનમાં Bluetooth ચાલુ છે અને HC-05 પેર કરેલું છે (PIN: 1234/0000).'
-            : 'કોઈ Bluetooth ડિવાઇસ પસંદ કર્યું નથી.',
+            ? 'નોંધ: તમારું HC-05 મોડ્યુલ Bluetooth Classic (SPP) વાપરે છે, જે સ્ટાન્ડર્ડ Web Bluetooth API દ્વારા સપોર્ટેડ નથી (બ્રાઉઝર ફક્ત BLE ને સપોર્ટ કરે છે). Android પર સુસંગત રીત: Arduino Uno ને USB-OTG કેબલ વડે જોડીને "Connect USB" વાપરો (Web Serial API Android Chrome માં સીધું લાઈવ ચાલે છે).'
+            : 'નોંધ: HC-05 મોડ્યુલ Bluetooth Classic (SPP) વાપરે છે, જે સ્ટાન્ડર્ડ Web Bluetooth API માં સપોર્ટેડ નથી (Web Bluetooth ફક્ત BLE ને સપોર્ટ કરે છે). કૃપા કરીને Arduino Uno ને USB કેબલ વડે જોડીને "Connect USB" વાપરો.',
         };
-        this.notifyStatus('DISCONNECTED', details);
+        this.log(details.message, 'error');
+        this.notifyStatus('ERROR', details);
       } else {
         details = {
           code: 'PORT_ERROR',
-          message: err.message || 'Bluetooth કનેક્શનમાં ભૂલ આવી.',
+          message: `${err.message || 'Bluetooth જોડાણ થઈ શક્યું નહીં'}. નોંધ: HC-05 Bluetooth Classic SPP સ્ટાન્ડર્ડ Web Bluetooth માં સપોર્ટેડ નથી. Android પર USB-OTG કેબલ સાથે "Connect USB" વાપરો.`,
         };
         this.log(`Bluetooth ભૂલ: ${details.message}`, 'error');
         this.notifyStatus('ERROR', details);
       }
+
       this.cleanup();
       return false;
     }
+  }
+
+  /**
+   * General connect dispatcher
+   */
+  public async connect(mode: SerialConnectionMode = 'USB'): Promise<boolean> {
+    if (mode === 'BLUETOOTH') {
+      return await this.connectBluetooth();
+    }
+    return await this.connectUsb();
   }
 
   /**

@@ -72,20 +72,31 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
           </div>
         )}
 
-        {/* Steps Guide */}
+        {/* HC-05 Classic SPP Technical Note */}
+        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 space-y-1.5 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-200">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>HC-05 Bluetooth Classic (SPP) અને બ્રાઉઝર મર્યાદા:</span>
+          </div>
+          <p className="text-amber-800/90 dark:text-amber-300/90 leading-relaxed text-[11px]">
+            HC-05 મોડ્યુલ <strong>Bluetooth Classic SPP (Serial Port Profile)</strong> વાપરે છે. વેબ બ્રાઉઝર્સનું Web Bluetooth API ફક્ત <em>Bluetooth Low Energy (BLE)</em> ને સપોર્ટ કરે છે. આથી બ્રાઉઝર સીધું HC-05 Classic સાથે વેબ બ્લૂટૂથ કનેક્શન કરી શકતું નથી.
+          </p>
+        </div>
+
+        {/* Steps Guide: Compatible Android Connection Method */}
         <div className="space-y-3 text-xs">
           <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span>HC-05 કનેક્ટ કરવાના ૪ સરળ પગલાં:</span>
+            <span>Android પર સુસંગત કનેક્શન પદ્ધતિ (USB-OTG Web Serial):</span>
           </div>
 
           <div className="space-y-2.5 font-sans">
-            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 flex items-start gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">૧</span>
+            <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-900/50 flex items-start gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">૧</span>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">Android Bluetooth માં HC-05 પેર કરો:</p>
+                <p className="font-semibold text-slate-900 dark:text-white">USB-OTG એડેપ્ટર વડે Arduino Uno જોડો (સૌથી વિશ્વસનીય):</p>
                 <p className="text-slate-600 dark:text-slate-300 mt-0.5">
-                  ફોનના <strong>Settings → Bluetooth</strong> માં જાઓ. "Pair new device" પર ટેપ કરો, <strong>HC-05</strong> પસંદ કરો અને PIN <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono text-blue-600 dark:text-blue-300">1234</code> અથવા <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono text-blue-600 dark:text-blue-300">0000</code> નાખો.
+                  તમારા Android ફોનના ચાર્જિંગ પોર્ટમાં <strong>Type-C to USB-A OTG એડેપ્ટર</strong> લગાવો અને Arduino Uno ની USB કેબલ જોડો. (ફોનના Settings માં જરૂર પડે તો "OTG Connection" ચાલુ કરો).
                 </p>
               </div>
             </div>
@@ -93,9 +104,9 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 flex items-start gap-2.5">
               <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">૨</span>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">Google Chrome બ્રાઉઝર વાપરો:</p>
+                <p className="font-semibold text-slate-900 dark:text-white">Android Google Chrome માં ખોલો:</p>
                 <p className="text-slate-600 dark:text-slate-300 mt-0.5">
-                  આ વેબસાઇટ તમારા Android ફોનમાં <strong>Google Chrome</strong> માં ખોલો (HTTPS સાથે સુસંગત).
+                  આ એપ્લિકેશનને Android પર <strong>Google Chrome</strong> માં ખોલો (HTTPS ટેબમાં).
                 </p>
               </div>
             </div>
@@ -103,9 +114,9 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 flex items-start gap-2.5">
               <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">૩</span>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">"Connect Bluetooth" પર ટેપ કરો:</p>
+                <p className="font-semibold text-slate-900 dark:text-white">"Connect USB" પર ટેપ કરો:</p>
                 <p className="text-slate-600 dark:text-slate-300 mt-0.5">
-                  નીચે આપેલા અથવા હેડરના બટન પર ટેપ કરો. Chrome ના બ્લૂટૂથ સિલેક્ટરમાંથી <strong>HC-05</strong> પસંદ કરો.
+                  <strong>Connect USB</strong> બટન દબાવો. Chrome માં USB ડિવાઇસ પરવાનગી પોપઅપ આવશે, તેમાં Arduino પસંદ કરી <strong>Connect</strong> આપો.
                 </p>
               </div>
             </div>
@@ -113,23 +124,23 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 flex items-start gap-2.5">
               <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">૪</span>
               <div>
-                <p className="font-semibold text-slate-900 dark:text-white">લાઈવ વોટર લેવલ અને પંપ કંટ્રોલ:</p>
+                <p className="font-semibold text-slate-900 dark:text-white">લાઈવ 115200 Baud Web Serial:</p>
                 <p className="text-slate-600 dark:text-slate-300 mt-0.5">
-                  વાસ્તવિક ડેટા (<code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono text-emerald-600 dark:text-emerald-400">DISTANCE:4.37,LEVEL:81.8%</code>) સાથે ટાંકીનું એનિમેશન અને પંપ કંટ્રોલ તરત જ સક્રિય થશે!
+                  Android Chrome Web Serial API દ્વારા લાઈવ સેન્સર રીડિંગ (<code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono text-emerald-600 dark:text-emerald-400">DISTANCE:xx,LEVEL:xx%</code>) અને રિલે પંપ કંટ્રોલ સીધું કાર્ય કરશે.
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* USB-OTG Notice */}
-        <div className="p-3 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50 space-y-1 text-xs">
-          <p className="font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
-            <Cable className="w-3.5 h-3.5 text-sky-600" />
-            <span>વૈકલ્પિક: USB-OTG કેબલ દ્વારા પણ જોડાઈ શકે છે</span>
+        {/* HC-05 Alternative App Note */}
+        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+          <p className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <Bluetooth className="w-3.5 h-3.5 text-blue-600" />
+            <span>HC-05 Bluetooth SPP માટે નોંધ:</span>
           </p>
-          <p className="text-sky-800/80 dark:text-sky-300/80 text-[11px] leading-relaxed">
-            જો તમે બ્લૂટૂથને બદલે વાયર્ડ કનેક્શન ઈચ્છતા હોવ, તો USB Type-C to Type-A OTG એડેપ્ટર વડે Arduino Uno કેબલ સીધો ફોનમાં જોડીને <strong>"Connect USB"</strong> પણ કરી શકો છો.
+          <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+            જો તમે વાયરલેસ HC-05 Bluetooth વાપરવા માંગતા હોવ, તો Android પર <em>Serial Bluetooth Terminal</em> જેવી નેટિવ SPP એપ દ્વારા સીધો 9600 Baud પર કમાન્ડ મોકલી શકાય છે, કારણ કે વેબ બ્રાઉઝર્સ સુરક્ષા કારણોસર Classic RFCOMM પ્રોફાઇલને સપોર્ટ કરતા નથી.
           </p>
         </div>
 

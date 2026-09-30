@@ -94,50 +94,44 @@ export const USB_CONNECTION_GUIDE = `
 `;
 
 export const ANDROID_HC05_CONNECTION_GUIDE = `
-📱 Android પર HC-05 Bluetooth કનેક્શન માર્ગદર્શિકા:
+📱 Android પર સુસંગત કનેક્શન અને HC-05 Bluetooth SPP માર્ગદર્શિકા:
 
-૧. Android માં HC-05 ને પેર (Pair) કરો:
-   - HC-05 મોડ્યુલને Arduino સાથે જોડો (VCC 5V, GND GND, LED ઝડપથી બ્લિંક થશે).
-   - તમારા Android ફોનમાં: સેટિંગ્સ (Settings) -> કનેક્ટેડ ડિવાઇસિસ (Bluetooth) -> "Pair new device" પર જાઓ.
-   - લિસ્ટમાં "HC-05" દેખાશે, તેના પર ટેપ કરો.
-   - પેરિંગ PIN પૂછે ત્યારે "1234" અથવા "0000" દાખલ કરો. HC-05 સફળતાપૂર્વક પેર થઈ જશે!
+૧. HC-05 Bluetooth Classic (SPP) મર્યાદા:
+   - HC-05 મોડ્યુલ Bluetooth Classic (SPP - Serial Port Profile) વાપરે છે.
+   - બ્રાઉઝર્સનું Web Bluetooth API ફક્ત Bluetooth Low Energy (BLE) ને સપોર્ટ કરે છે.
+   - આથી વેબ બ્રાઉઝર સીધું HC-05 Classic સાથે વેબ બ્લૂટૂથ જોડાણ કરી શકતું નથી.
 
-૨. Google Chrome બ્રાઉઝરમાં એપ ખોલો:
-   - Android ફોનમાં Google Chrome બ્રાઉઝર વાપરો (Chrome 138+ માં Web Serial Bluetooth RFCOMM સપોર્ટ છે).
-   - જો આ એપ આઇફ્રેમ (Iframe) માં ખૂલેલી હોય, તો "Open in Direct Tab" (નવી ટેબમાં ખોલો) બટન પર ટેપ કરો જેથી બ્રાઉઝર પરવાનગી આપી શકે.
+૨. Android પર સુસંગત કનેક્શન રીત (USB-OTG Web Serial):
+   - Type-C to USB-A OTG એડેપ્ટર વડે Arduino Uno ની USB કેબલ સીધી તમારા Android ફોનમાં લગાવો.
+   - Android ફોનમાં Google Chrome બ્રાઉઝર ખોલો.
+   - "Connect USB" બટન પર ટેપ કરો (Web Serial API).
+   - Chrome માં USB ડિવાઇસ પરવાનગી પોપઅપમાં Arduino Uno પસંદ કરી "Connect" આપો.
+   - આ રીત 100% વિશ્વસનીય છે અને 115200 Baud પર લાઈવ સેન્સર ફીડબેક અને પંપ કંટ્રોલ પૂરું પાડે છે.
 
-૩. 'Connect Bluetooth' પર ટેપ કરો:
-   - એપ્લિકેશનના હેડર અથવા ડેશબોર્ડમાં "Connect Bluetooth" બટન પર ટેપ કરો.
-   - Chrome તમારા પેર થયેલા Bluetooth Serial ડિવાઇસીસનું પોપઅપ બતાવશે.
-   - તેમાં "HC-05" પસંદ કરો અને "Connect" દબાવો.
-
-૪. લાઈવ રીડિંગ્સ અને કંટ્રોલ:
-   - એપ આપમેળે 9600 Baud પર HC-05 સાથે કનેક્ટ થશે.
-   - સેન્સર રીડિંગ "DISTANCE:4.37,LEVEL:81.8%" મળતા જ ટાંકીનું લાઈવ લેવલ, અંતર અને એનિમેશન દેખાશે.
-
-૫. વિકલ્પ: USB-OTG દ્વારા Arduino Uno જોડાણ:
-   - જો તમારી પાસે USB-OTG એડેપ્ટર હોય, તો તમે સીધું Arduino Uno કેબલ એન્ડ્રોઇડ ફોનમાં ભરાવીને "Connect USB" પણ કરી શકો છો!
+૩. HC-05 Bluetooth વાપરવા માટેનો વિકલ્પ:
+   - જો તમે Android પર વાયરલેસ HC-05 વાપરવા માંગતા હોવ, તો Play Store પરથી "Serial Bluetooth Terminal" જેવી નેટિવ SPP એપ વાપરો.
+   - Arduino Uno માં HC-05 RX/TX જોડીને 9600 Baud પર ડેટા મોકલી શકાય છે.
 `;
 
 export const BLUETOOTH_CONNECTION_GUIDE = `
-1. Pair HC-05 with Windows PC:
-   - Power up HC-05 (VCC to 5V, GND to GND, LED blinks rapidly).
-   - Go to Windows Settings -> Bluetooth & devices -> Add device -> Bluetooth.
-   - Select 'HC-05' and enter pairing PIN (usually 1234 or 0000).
-   - Once paired, Windows creates outgoing Virtual COM Ports (e.g., COM4, COM5).
+1. HC-05 Bluetooth Classic (SPP) Architecture:
+   - HC-05 is a Bluetooth Classic module implementing the Serial Port Profile (SPP / RFCOMM).
+   - Standard Web Bluetooth in browsers only supports Bluetooth Low Energy (BLE GATT).
+   - Therefore, the 'Connect Bluetooth' button uses a dedicated Web Bluetooth handler and does not open the USB serial port picker.
 
-2. HC-05 Wiring with Arduino:
+2. Compatible Android Connection Method:
+   - Connect Arduino Uno directly to your Android device using a USB-OTG cable adapter.
+   - Open this web app in Google Chrome on Android.
+   - Click 'Connect USB' to initiate Web Serial API communication at 115200 Baud.
+   - This provides real-time telemetry ("DISTANCE:4.37,LEVEL:81.8%") and instant pump control.
+
+3. HC-05 Wiring with Arduino Uno:
    - HC-05 VCC -> Arduino 5V
    - HC-05 GND -> Arduino GND
    - HC-05 TXD -> Arduino Pin 0 (RX) [or SoftwareSerial RX]
    - HC-05 RXD -> Arduino Pin 1 (TX) via voltage divider (1k/2k resistors since HC-05 RX is 3.3V logic)
 
-3. Default Baud Rate:
-   - HC-05 standard SPP communication is 9600 Baud.
-   - The web app automatically configures 9600 Baud when you click 'Connect Bluetooth'.
-
-4. Click 'Connect Bluetooth' in Web App:
-   - Click 'Connect Bluetooth' in the top header or dashboard.
-   - When the browser serial picker appears, select the outgoing Bluetooth COM Port and click 'Connect'.
-   - The app will start receiving live data ("DISTANCE:4.37,LEVEL:81.8%") and display real-time tank animation!
+4. Dedicated Connection Handlers:
+   - 'Connect USB': Uses Web Serial API (Chrome/Edge/Opera desktop & Android USB-OTG) at 115200 Baud.
+   - 'Connect Bluetooth': Dedicated Bluetooth handler for BLE GATT; explains HC-05 Classic SPP requirements without faking a connection.
 `;

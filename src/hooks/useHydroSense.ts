@@ -45,7 +45,7 @@ export function useHydroSense() {
     setActionError(null);
     setUsbError(null);
     try {
-      const ok = await webSerial.connect('USB');
+      const ok = await webSerial.connectUsb();
       return ok;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'USB પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
@@ -56,16 +56,16 @@ export function useHydroSense() {
     }
   }, []);
 
-  // Connect Web Serial via HC-05 Bluetooth Virtual COM Port (9600 Baud)
+  // Connect via Bluetooth (Separate Web Bluetooth Handler)
   const connectBluetooth = useCallback(async (): Promise<boolean> => {
     setIsSubmitting(true);
     setActionError(null);
     setUsbError(null);
     try {
-      const ok = await webSerial.connect('BLUETOOTH');
+      const ok = await webSerial.connectBluetooth();
       return ok;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'HC-05 Bluetooth COM પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
+      const msg = err instanceof Error ? err.message : 'HC-05 Bluetooth સાથે જોડાણમાં ભૂલ આવી';
       setUsbError(msg);
       return false;
     } finally {
