@@ -48,6 +48,9 @@ export default function App() {
     isAndroid,
     connectUsb,
     connectBluetooth,
+    connectBluetoothSerial,
+    connectBluetoothBridge,
+    getBridgeUrl,
     disconnectUsb,
     startUsbFilling,
     stopUsbPump,
@@ -164,7 +167,7 @@ export default function App() {
                 <span>Connect USB</span>
               </button>
               <button
-                onClick={connectBluetooth}
+                onClick={() => connectBluetooth()}
                 disabled={!isUsbSupported || isSubmitting}
                 className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                 title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
@@ -269,13 +272,19 @@ export default function App() {
         onSelectTab={(tab) => setActiveTab(tab)}
       />
 
-      {/* Android HC-05 Connection Guide Modal */}
+      {/* Android HC-05 Connection Guide & Bridge Modal */}
       <AndroidBluetoothModal
         isOpen={showAndroidModal}
         onClose={() => setShowAndroidModal(false)}
         onConnectBluetooth={connectBluetooth}
+        onConnectBluetoothSerial={connectBluetoothSerial}
+        onConnectBluetoothBridge={connectBluetoothBridge}
         onConnectUsb={connectUsb}
         isIframeEmbedded={isIframeEmbedded}
+        usbError={usbError}
+        usbStatus={usbStatus}
+        serialMode={serialMode}
+        initialBridgeUrl={getBridgeUrl()}
       />
     </div>
   );

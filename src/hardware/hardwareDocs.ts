@@ -96,42 +96,49 @@ export const USB_CONNECTION_GUIDE = `
 export const ANDROID_HC05_CONNECTION_GUIDE = `
 📱 Android પર સુસંગત કનેક્શન અને HC-05 Bluetooth SPP માર્ગદર્શિકા:
 
-૧. HC-05 Bluetooth Classic (SPP) મર્યાદા:
+૧. HC-05 Bluetooth Classic (SPP 9600 Baud) અને બ્રાઉઝર મર્યાદા:
    - HC-05 મોડ્યુલ Bluetooth Classic (SPP - Serial Port Profile) વાપરે છે.
-   - બ્રાઉઝર્સનું Web Bluetooth API ફક્ત Bluetooth Low Energy (BLE) ને સપોર્ટ કરે છે.
-   - આથી વેબ બ્રાઉઝર સીધું HC-05 Classic સાથે વેબ બ્લૂટૂથ જોડાણ કરી શકતું નથી.
+   - Serial Bluetooth Terminal જેવી નેટિવ Android એપ ઓપરેટિંગ સિસ્ટમના નેટિવ RFCOMM સોકેટનો ઉપયોગ કરતી હોવાથી કનેક્ટેડ રહે છે.
+   - જ્યારે વેબ બ્રાઉઝર્સનું Web Bluetooth API ફક્ત BLE (Bluetooth Low Energy GATT) ને સપોર્ટ કરે છે અને સુરક્ષા નિયમ મુજબ Classic RFCOMM ને બ્લોક કરે છે.
 
-૨. Android પર સુસંગત કનેક્શન રીત (USB-OTG Web Serial):
-   - Type-C to USB-A OTG એડેપ્ટર વડે Arduino Uno ની USB કેબલ સીધી તમારા Android ફોનમાં લગાવો.
-   - Android ફોનમાં Google Chrome બ્રાઉઝર ખોલો.
-   - "Connect USB" બટન પર ટેપ કરો (Web Serial API).
-   - Chrome માં USB ડિવાઇસ પરવાનગી પોપઅપમાં Arduino Uno પસંદ કરી "Connect" આપો.
-   - આ રીત 100% વિશ્વસનીય છે અને 115200 Baud પર લાઈવ સેન્સર ફીડબેક અને પંપ કંટ્રોલ પૂરું પાડે છે.
+૨. વ્યવહારુ ઉકેલ ૧: Bluetooth WebSocket Bridge (વાયરલેસ):
+   - પ્રોજેક્ટમાં સામેલ 'python bluetooth_bridge.py' સ્ક્રિપ્ટ ચલાવો.
+   - તે HC-05 સાથે 9600 Baud SPP પર જોડાય છે અને ws://localhost:8088 પર લોકલ WebSocket સર્વર બનાવે છે.
+   - નેટલિફાય વેબ એપ સીધી આ બ્રિજ સાથે કનેક્ટ થઈને વાયરલેસ લાઈવ ડેટા અને કંટ્રોલ મેળવે છે.
 
-૩. HC-05 Bluetooth વાપરવા માટેનો વિકલ્પ:
-   - જો તમે Android પર વાયરલેસ HC-05 વાપરવા માંગતા હોવ, તો Play Store પરથી "Serial Bluetooth Terminal" જેવી નેટિવ SPP એપ વાપરો.
-   - Arduino Uno માં HC-05 RX/TX જોડીને 9600 Baud પર ડેટા મોકલી શકાય છે.
+૩. વ્યવહારુ ઉકેલ ૨: લેપટોપ પર Paired Bluetooth COM Port (9600 Baud):
+   - Windows/Mac/Linux માં HC-05 પેર કરો (PIN: 1234).
+   - "Connect Paired Bluetooth COM (9600 Baud)" દબાવી COM પોર્ટ સિલેક્ટ કરો.
+
+૪. વ્યવહારુ ઉકેલ ૩: Android પર USB-OTG (સૌથી વિશ્વસનીય):
+   - Type-C to USB-A OTG એડેપ્ટર વડે Arduino Uno ની USB કેબલ સીધી Android ફોનમાં લગાવો.
+   - Android Google Chrome માં "Connect USB" દબાવો (115200 Baud Web Serial).
 `;
 
 export const BLUETOOTH_CONNECTION_GUIDE = `
-1. HC-05 Bluetooth Classic (SPP) Architecture:
-   - HC-05 is a Bluetooth Classic module implementing the Serial Port Profile (SPP / RFCOMM).
-   - Standard Web Bluetooth in browsers only supports Bluetooth Low Energy (BLE GATT).
-   - Therefore, the 'Connect Bluetooth' button uses a dedicated Web Bluetooth handler and does not open the USB serial port picker.
+1. HC-05 Bluetooth Classic (SPP 9600 Baud) Architecture:
+   - HC-05 implements the Bluetooth Classic Serial Port Profile (SPP / RFCOMM) running at 9600 baud.
+   - Web Bluetooth API in browsers strictly supports BLE GATT and cannot directly open RFCOMM sockets.
+   - Android native apps like 'Serial Bluetooth Terminal' work because they use native OS Java RFCOMM sockets.
 
-2. Compatible Android Connection Method:
-   - Connect Arduino Uno directly to your Android device using a USB-OTG cable adapter.
-   - Open this web app in Google Chrome on Android.
-   - Click 'Connect USB' to initiate Web Serial API communication at 115200 Baud.
-   - This provides real-time telemetry ("DISTANCE:4.37,LEVEL:81.8%") and instant pump control.
+2. Practical Web Solutions (Without Faking Connection):
+   - Method A: Bluetooth WebSocket Bridge ('python bluetooth_bridge.py'):
+     Runs locally on laptop or Android Termux, bridges HC-05 RFCOMM to ws://localhost:8088.
+   - Method B: Laptop Paired Bluetooth Virtual COM Port (9600 Baud):
+     Pair HC-05 in Windows/Mac/Linux OS Bluetooth settings, open the COM port at 9600 Baud via Web Serial.
+   - Method C: USB-OTG Direct Cable (115200 Baud):
+     Direct physical USB link via Web Serial in Chrome on laptops and Android OTG.
 
 3. HC-05 Wiring with Arduino Uno:
    - HC-05 VCC -> Arduino 5V
    - HC-05 GND -> Arduino GND
    - HC-05 TXD -> Arduino Pin 0 (RX) [or SoftwareSerial RX]
-   - HC-05 RXD -> Arduino Pin 1 (TX) via voltage divider (1k/2k resistors since HC-05 RX is 3.3V logic)
+   - HC-05 RXD -> Arduino Pin 1 (TX) via voltage divider (1kΩ/2kΩ resistors to convert 5V to 3.3V)
+   - Baud Rate: 9600 Baud (Standard HC-05 default)
 
-4. Dedicated Connection Handlers:
-   - 'Connect USB': Uses Web Serial API (Chrome/Edge/Opera desktop & Android USB-OTG) at 115200 Baud.
-   - 'Connect Bluetooth': Dedicated Bluetooth handler for BLE GATT; explains HC-05 Classic SPP requirements without faking a connection.
+4. Calibration & Autonomous Safety:
+   - Empty Tank Distance (0%): 13.26 cm
+   - Full Tank Distance (100%): 2.40 cm
+   - Critical Overflow Cutoff: >= 97.0%
+   - Autonomous cutoff enforced directly on Arduino Uno loop.
 `;

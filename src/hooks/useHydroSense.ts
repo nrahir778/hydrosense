@@ -56,16 +56,57 @@ export function useHydroSense() {
     }
   }, []);
 
-  // Connect via Bluetooth (Separate Web Bluetooth Handler)
-  const connectBluetooth = useCallback(async (): Promise<boolean> => {
+  // Connect via Bluetooth (Intelligent Handler supporting Paired COM & Bridge)
+  const connectBluetooth = useCallback(
+    async (options?: { method?: 'serial' | 'bridge' | 'ble'; bridgeUrl?: string } | unknown): Promise<boolean> => {
+      setIsSubmitting(true);
+      setActionError(null);
+      setUsbError(null);
+      try {
+        const cleanOpts =
+          options && typeof options === 'object' && 'method' in options
+            ? (options as { method?: 'serial' | 'bridge' | 'ble'; bridgeUrl?: string })
+            : undefined;
+        const ok = await webSerial.connectBluetooth(cleanOpts);
+        return ok;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'HC-05 Bluetooth સાથે જોડાણમાં ભૂલ આવી';
+        setUsbError(msg);
+        return false;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    []
+  );
+
+  // Connect via Paired HC-05 Bluetooth Virtual COM Port (9600 Baud) on Laptops
+  const connectBluetoothSerial = useCallback(async (): Promise<boolean> => {
     setIsSubmitting(true);
     setActionError(null);
     setUsbError(null);
     try {
-      const ok = await webSerial.connectBluetooth();
+      const ok = await webSerial.connectBluetoothSerial();
       return ok;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'HC-05 Bluetooth સાથે જોડાણમાં ભૂલ આવી';
+      const msg = err instanceof Error ? err.message : 'HC-05 Bluetooth COM પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
+      setUsbError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Connect via Bluetooth WebSocket Bridge (ws://localhost:8088)
+  const connectBluetoothBridge = useCallback(async (customUrl?: string): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    setUsbError(null);
+    try {
+      const ok = await webSerial.connectBluetoothBridge(customUrl);
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Bluetooth WebSocket બ્રિજ સાથે જોડાણમાં ભૂલ આવી';
       setUsbError(msg);
       return false;
     } finally {
@@ -621,6 +662,10 @@ export function useHydroSense() {
     isAndroid,
     connectUsb,
     connectBluetooth,
+    connectBluetoothSerial,
+    connectBluetoothBridge,
+    getBridgeUrl: () => webSerial.getBridgeUrl(),
+    setBridgeUrl: (url: string) => webSerial.saveBridgeUrl(url),
     disconnectUsb,
     startUsbFilling,
     stopUsbPump,
