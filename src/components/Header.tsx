@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Sun, Moon, Cpu, GraduationCap, Sparkles, RotateCw, Cable, CheckCircle2, Power, Bluetooth } from 'lucide-react';
+import { ShieldAlert, Sun, Moon, Cpu, GraduationCap, Sparkles, RotateCw, Cable, CheckCircle2, Power, Bluetooth, Smartphone } from 'lucide-react';
 import { HardwareConnectionState } from '../types';
 import { UsbConnectionStatus, SerialConnectionMode } from '../services/webSerial';
 
@@ -23,6 +23,8 @@ interface HeaderProps {
   onDisconnectUsb?: () => void;
   isUsbSupported?: boolean;
   isPermissionsDisallowed?: boolean;
+  isAndroid?: boolean;
+  onOpenAndroidGuide?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -43,6 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
   onDisconnectUsb,
   isUsbSupported = true,
   isPermissionsDisallowed = false,
+  isAndroid = false,
+  onOpenAndroidGuide,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-xs">
@@ -174,6 +178,19 @@ export const Header: React.FC<HeaderProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span className="hidden sm:inline">AI વોઇસ</span>
           </button>
+
+          {/* Android Mobile HC-05 Helper Button */}
+          {onOpenAndroidGuide && (
+            <button
+              onClick={onOpenAndroidGuide}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 dark:text-sky-300 dark:border-sky-900/50 cursor-pointer"
+              title="Android પર HC-05 Bluetooth કનેક્શન માર્ગદર્શિકા"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span className="hidden md:inline">Android HC-05</span>
+              <span className="md:hidden">Android</span>
+            </button>
+          )}
 
           {/* Serial Connection Status & Controls (USB & HC-05 Bluetooth) */}
           {usbStatus === 'CONNECTED' ? (

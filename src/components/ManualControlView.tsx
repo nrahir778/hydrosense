@@ -18,6 +18,7 @@ import {
   Cpu,
   RotateCw,
   Terminal,
+  Smartphone,
 } from 'lucide-react';
 
 interface ManualControlViewProps {
@@ -38,6 +39,8 @@ interface ManualControlViewProps {
   usbTelemetry?: ArduinoTelemetry | null;
   isUsbSupported?: boolean;
   isPermissionsDisallowed?: boolean;
+  isAndroid?: boolean;
+  onOpenAndroidGuide?: () => void;
   onConnectUsb?: () => Promise<boolean>;
   onConnectBluetooth?: () => Promise<boolean>;
   onDisconnectUsb?: () => Promise<void>;
@@ -58,6 +61,8 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
   usbTelemetry = null,
   isUsbSupported = true,
   isPermissionsDisallowed = false,
+  isAndroid = false,
+  onOpenAndroidGuide,
   onConnectUsb,
   onConnectBluetooth,
   onDisconnectUsb,
@@ -201,6 +206,17 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                   >
                     <Bluetooth className="w-3.5 h-3.5" />
                     <span>Connect Bluetooth</span>
+                  </button>
+                )}
+                {onOpenAndroidGuide && (
+                  <button
+                    onClick={onOpenAndroidGuide}
+                    className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Android પર HC-05 કનેક્ટ કરવાની રીત જુઓ"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="hidden sm:inline">Android મદદ</span>
+                    <span className="sm:hidden">Android</span>
                   </button>
                 )}
               </>

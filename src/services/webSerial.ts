@@ -6,6 +6,11 @@
 export type UsbConnectionStatus = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR';
 export type SerialConnectionMode = 'USB' | 'BLUETOOTH';
 
+export function isAndroidDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
 export interface ArduinoTelemetry {
   levelPercent: number;        // Actual measured water level (0 - 100%)
   distanceCm: number;          // Actual measured ultrasonic distance in cm
@@ -37,6 +42,10 @@ class WebSerialService {
   private logListeners: Set<LogListener> = new Set();
   private staleCheckInterval: any = null;
   private statusPollInterval: any = null;
+  // Web Bluetooth (GATT BLE) fields
+  private bluetoothDevice: any = null;
+  private rxCharacteristic: any = null;
+  private txCharacteristic: any = null;
 
   constructor() {
     if (typeof window !== 'undefined' && 'serial' in navigator) {
@@ -50,7 +59,15 @@ class WebSerialService {
   }
 
   public isSupported(): boolean {
+    return typeof window !== 'undefined' && ('serial' in navigator || 'bluetooth' in navigator);
+  }
+
+  public isWebSerialSupported(): boolean {
     return typeof window !== 'undefined' && 'serial' in navigator;
+  }
+
+  public isWebBluetoothSupported(): boolean {
+    return typeof window !== 'undefined' && 'bluetooth' in navigator;
   }
 
   public isPermissionsPolicyDisallowed(): boolean {
@@ -127,15 +144,21 @@ class WebSerialService {
 
   /**
    * Request serial port and open with specified mode:
-   * - USB: 115200 baud (Direct Arduino Uno USB)
-   * - BLUETOOTH: 9600 baud (HC-05 Windows Bluetooth virtual COM port)
+   * - USB: 115200 baud (Direct Arduino Uno USB, works on Desktop & Android USB-OTG)
+   * - BLUETOOTH: 9600 baud (HC-05 Windows Virtual COM port or Android Bluetooth RFCOMM / BLE)
    * MUST be invoked directly from a user gesture (e.g. button click)
    */
   public async connect(mode: SerialConnectionMode = 'USB'): Promise<boolean> {
-    if (!this.isSupported()) {
+    const isAndroid = isAndroidDevice();
+    const hasSerial = this.isWebSerialSupported();
+    const hasBluetooth = this.isWebBluetoothSupported();
+
+    if (!hasSerial && !hasBluetooth) {
       const err: SerialErrorDetails = {
         code: 'UNSUPPORTED',
-        message: 'Web Serial API આ બ્રાઉઝરમાં ઉપલબ્ધ નથી. કૃપા કરીને Google Chrome, Edge અથવા Opera વાપરો.',
+        message: isAndroid
+          ? 'આ એન્ડ્રોઇડ બ્રાઉઝરમાં Web Serial અથવા Web Bluetooth ઉપલબ્ધ નથી. કૃપા કરીને Android પર Google Chrome વાપરો.'
+          : 'Web Serial API આ બ્રાઉઝરમાં ઉપલબ્ધ નથી. કૃપા કરીને Google Chrome, Edge અથવા Opera વાપરો.',
       };
       this.log(err.message, 'error');
       this.notifyStatus('ERROR', err);
@@ -146,7 +169,9 @@ class WebSerialService {
     if (this.isPermissionsPolicyDisallowed()) {
       const err: SerialErrorDetails = {
         code: 'PERMISSIONS_POLICY_DISALLOWED',
-        message: 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
+        message: isAndroid
+          ? 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે સીરીયલ બ્લોક છે. Android પર HC-05 કનેક્ટ કરવા માટે એપને નવી ટેબ ("Open in Direct Tab") માં ખોલો.'
+          : 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
       };
       this.log(err.message, 'error');
       this.notifyStatus('ERROR', err);
@@ -159,16 +184,41 @@ class WebSerialService {
 
     this.mode = mode;
     const baudRate = mode === 'BLUETOOTH' ? 9600 : 115200;
-    const modeLabel = mode === 'BLUETOOTH' ? 'HC-05 Bluetooth (9600 Baud)' : 'Arduino Uno USB (115200 Baud)';
+    const modeLabel = mode === 'BLUETOOTH'
+      ? isAndroid ? 'HC-05 Android Bluetooth (9600 Baud)' : 'HC-05 Bluetooth (9600 Baud)'
+      : 'Arduino Uno USB (115200 Baud)';
+
+    // If Bluetooth is requested and Web Serial is not available on this device, but Web Bluetooth is:
+    if (mode === 'BLUETOOTH' && !hasSerial && hasBluetooth) {
+      return await this.connectWebBluetooth();
+    }
 
     this.notifyStatus('CONNECTING', null);
-    this.log(`${modeLabel} સીરીયલ પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...`, 'info');
+    this.log(`${modeLabel} પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...`, 'info');
 
     try {
       // 1. Request port from user
-      this.port = await (navigator as any).serial.requestPort({
-        // Lets the user select Arduino USB COM port or HC-05 Windows Bluetooth virtual COM port
-      });
+      if (mode === 'BLUETOOTH') {
+        try {
+          // On Android Chrome & Desktop, passing allowedBluetoothServiceClassIds allows selecting HC-05 SPP
+          this.port = await (navigator as any).serial.requestPort({
+            allowedBluetoothServiceClassIds: [
+              0x1101, // Standard Serial Port Profile (SPP) alias
+              '00001101-0000-1000-8000-00805f9b34fb', // Standard 128-bit SPP UUID
+              'serial_port',
+            ],
+          });
+        } catch (optionsErr: any) {
+          // Fallback if browser doesn't accept allowedBluetoothServiceClassIds
+          if (optionsErr && (optionsErr.name === 'TypeError' || (optionsErr.message && optionsErr.message.includes('allowedBluetoothServiceClassIds')))) {
+            this.port = await (navigator as any).serial.requestPort();
+          } else {
+            throw optionsErr;
+          }
+        }
+      } else {
+        this.port = await (navigator as any).serial.requestPort();
+      }
 
       // 2. Open port at appropriate baud rate
       this.log(`સીરીયલ પોર્ટ ઓપન થઈ રહ્યું છે (Baud Rate: ${baudRate})...`, 'info');
@@ -181,40 +231,11 @@ class WebSerialService {
       // 3. Start reader loop
       this.startReadingLoop();
 
-      // 4. Request initial status after a brief settling delay for DTR reset
-      setTimeout(() => {
-        if (this.status === 'CONNECTED') {
-          this.sendCommand('STATUS');
-        }
-      }, 1500);
-
-      // 5. Setup periodic status poll (heartbeat every 2 seconds if idle)
-      this.statusPollInterval = setInterval(() => {
-        if (this.status === 'CONNECTED') {
-          // If no message in 2.5 seconds, send STATUS to keep telemetry flowing
-          if (!this.lastTelemetry || Date.now() - this.lastTelemetry.lastReceivedAt > 2000) {
-            this.sendCommand('STATUS');
-          }
-        }
-      }, 2000);
-
-      // 6. Setup stale data checker
-      this.staleCheckInterval = setInterval(() => {
-        if (this.lastTelemetry && this.status === 'CONNECTED') {
-          const isStale = Date.now() - this.lastTelemetry.lastReceivedAt > 3500;
-          if (isStale !== this.lastTelemetry.isStale) {
-            this.lastTelemetry = { ...this.lastTelemetry, isStale };
-            this.notifyTelemetry(this.lastTelemetry);
-            if (isStale) {
-              this.log(`ચેતવણી: ${this.mode === 'BLUETOOTH' ? 'HC-05' : 'Arduino'} માંથી છેલ્લી 3.5 સેકન્ડથી કોઈ ડેટા મળ્યો નથી (Stale data)`, 'error');
-            }
-          }
-        }
-      }, 1000);
+      // 4. Setup heartbeat & poll intervals
+      this.setupHeartbeat();
 
       return true;
     } catch (err: any) {
-      // Use console.warn instead of console.error to avoid flagging standard user cancellations or browser iframe restrictions as uncaught runtime errors
       console.warn('WebSerial request notice:', err?.message || err);
       let details: SerialErrorDetails;
 
@@ -226,15 +247,18 @@ class WebSerialService {
       if (isPolicyDisallowed) {
         details = {
           code: 'PERMISSIONS_POLICY_DISALLOWED',
-          message: 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
+          message: isAndroid
+            ? 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્લોક છે. Android પર વાપરવા માટે "Open in Direct Tab" દબાવો.'
+            : 'આઇફ્રેમ (iframe) સુરક્ષા પ્રતિબંધને લીધે બ્રાઉઝરે Web Serial બ્લોક કર્યું છે. Arduino / HC-05 સાથે કનેક્ટ કરવા માટે એપને નવી અલગ વિન્ડો/ટેબ (Open in New Tab) માં ખોલો.',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
       } else if (err.name === 'NotFoundError') {
-        // User cancelled port picker dialog
         details = {
           code: 'NOT_ALLOWED',
-          message: 'કોઈ પોર્ટ પસંદ કરવામાં આવ્યો નથી (User cancelled).',
+          message: mode === 'BLUETOOTH' && isAndroid
+            ? 'કોઈ HC-05 ડિવાઇસ પસંદ કર્યું નથી. ખાતરી કરો કે ફોનમાં Android Settings -> Bluetooth માં જઈને HC-05 પેર કર્યું છે (PIN: 1234 અથવા 0000).'
+            : 'કોઈ પોર્ટ પસંદ કરવામાં આવ્યો નથી (User cancelled).',
         };
         this.notifyStatus('DISCONNECTED', details);
       } else if (err.name === 'InvalidStateError' || (err.message && err.message.includes('already open'))) {
@@ -252,6 +276,11 @@ class WebSerialService {
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
       } else {
+        // If mode is Bluetooth and Web Serial failed on Android, attempt Web Bluetooth fallback
+        if (mode === 'BLUETOOTH' && hasBluetooth) {
+          this.log('Web Serial અનિશ્ચિત, Web Bluetooth દ્વારા પ્રયાસ કરી રહ્યું છે...', 'info');
+          return await this.connectWebBluetooth();
+        }
         details = {
           code: 'PORT_ERROR',
           message: err.message || 'સીરીયલ પોર્ટ ઓપન કરવામાં ભૂલ આવી.',
@@ -263,6 +292,143 @@ class WebSerialService {
       this.cleanup();
       return false;
     }
+  }
+
+  /**
+   * Connect via Web Bluetooth (BLE GATT) fallback for Android or BLE modules
+   */
+  public async connectWebBluetooth(): Promise<boolean> {
+    const isAndroid = isAndroidDevice();
+    this.notifyStatus('CONNECTING', null);
+    this.log('Web Bluetooth દ્વારા HC-05 / BLE ડિવાઇસ સ્કેન કરી રહ્યું છે...', 'info');
+
+    try {
+      const UART_SERVICES = [
+        '0000ffe0-0000-1000-8000-00805f9b34fb', // Standard HM-10 / HC-08 / BLE Serial
+        '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC transparent UART
+      ];
+
+      this.bluetoothDevice = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: UART_SERVICES,
+      });
+
+      this.bluetoothDevice.addEventListener('gattserverdisconnected', () => {
+        this.log('Bluetooth ડિવાઇસ ડિસ્કનેક્ટ થયું', 'error');
+        this.handleDisconnect('Bluetooth device disconnected');
+      });
+
+      this.log(`GATT સર્વર સાથે જોડાઈ રહ્યું છે (${this.bluetoothDevice.name || 'Bluetooth'})...`, 'info');
+      const server = await this.bluetoothDevice.gatt.connect();
+
+      let service: any = null;
+      for (const uuid of UART_SERVICES) {
+        try {
+          service = await server.getPrimaryService(uuid);
+          if (service) break;
+        } catch {
+          // continue checking other service UUIDs
+        }
+      }
+
+      if (!service) {
+        throw new Error('સુસંગત Serial/UART સર્વિસ મળી નથી.');
+      }
+
+      const characteristics = await service.getCharacteristics();
+      for (const char of characteristics) {
+        if (char.properties.notify || char.properties.indicate) {
+          this.rxCharacteristic = char;
+        }
+        if (char.properties.write || char.properties.writeWithoutResponse) {
+          this.txCharacteristic = char;
+        }
+      }
+
+      if (this.rxCharacteristic) {
+        await this.rxCharacteristic.startNotifications();
+        const decoder = new TextDecoder();
+        let bleBuffer = '';
+        this.rxCharacteristic.addEventListener('characteristicvaluechanged', (event: any) => {
+          const value = event.target.value;
+          const textChunk = decoder.decode(value);
+          bleBuffer += textChunk;
+          let newlineIndex: number;
+          while ((newlineIndex = bleBuffer.indexOf('\n')) >= 0) {
+            const rawLine = bleBuffer.slice(0, newlineIndex).replace(/[\r\n]/g, '').trim();
+            bleBuffer = bleBuffer.slice(newlineIndex + 1);
+            if (rawLine.length > 0) {
+              this.handleIncomingLine(rawLine);
+            }
+          }
+        });
+      }
+
+      this.keepReading = true;
+      this.mode = 'BLUETOOTH';
+      this.notifyStatus('CONNECTED', null);
+      this.log(`Bluetooth (${this.bluetoothDevice.name || 'HC-05'}) સાથે સફળતાપૂર્વક જોડાઈ ગયું!`, 'info');
+
+      this.setupHeartbeat();
+      return true;
+    } catch (err: any) {
+      console.warn('Web Bluetooth notice:', err);
+      let details: SerialErrorDetails;
+      if (err.name === 'NotFoundError') {
+        details = {
+          code: 'NOT_ALLOWED',
+          message: isAndroid
+            ? 'કોઈ Bluetooth ડિવાઇસ પસંદ કર્યું નથી. ખાતરી કરો કે ફોનમાં Bluetooth ચાલુ છે અને HC-05 પેર કરેલું છે (PIN: 1234/0000).'
+            : 'કોઈ Bluetooth ડિવાઇસ પસંદ કર્યું નથી.',
+        };
+        this.notifyStatus('DISCONNECTED', details);
+      } else {
+        details = {
+          code: 'PORT_ERROR',
+          message: err.message || 'Bluetooth કનેક્શનમાં ભૂલ આવી.',
+        };
+        this.log(`Bluetooth ભૂલ: ${details.message}`, 'error');
+        this.notifyStatus('ERROR', details);
+      }
+      this.cleanup();
+      return false;
+    }
+  }
+
+  /**
+   * Setup periodic heartbeat & stale telemetry detector
+   */
+  private setupHeartbeat() {
+    clearInterval(this.staleCheckInterval);
+    clearInterval(this.statusPollInterval);
+
+    setTimeout(() => {
+      if (this.status === 'CONNECTED') {
+        this.sendCommand('STATUS');
+      }
+    }, 1500);
+
+    this.statusPollInterval = setInterval(() => {
+      if (this.status === 'CONNECTED') {
+        if (!this.lastTelemetry || Date.now() - this.lastTelemetry.lastReceivedAt > 2000) {
+          this.sendCommand('STATUS');
+        }
+      }
+    }, 2000);
+
+    this.staleCheckInterval = setInterval(() => {
+      if (this.lastTelemetry && this.status === 'CONNECTED') {
+        const isStale = Date.now() - this.lastTelemetry.lastReceivedAt > 3500;
+        if (isStale !== this.lastTelemetry.isStale) {
+          this.lastTelemetry = { ...this.lastTelemetry, isStale };
+          this.notifyTelemetry(this.lastTelemetry);
+          if (isStale) {
+            this.log(`ચેતવણી: ${this.mode === 'BLUETOOTH' ? 'HC-05' : 'Arduino'} માંથી છેલ્લી 3.5 સેકન્ડથી કોઈ ડેટા મળ્યો નથી (Stale data)`, 'error');
+          }
+        }
+      }
+    }, 1000);
   }
 
   /**
@@ -371,8 +537,24 @@ class WebSerialService {
    */
   public async sendCommand(cmd: string): Promise<boolean> {
     const trimmed = cmd.trim();
+
+    // 1. If connected via Web Bluetooth GATT
+    if (this.txCharacteristic && this.status === 'CONNECTED') {
+      try {
+        const encoder = new TextEncoder();
+        await this.txCharacteristic.writeValue(encoder.encode(trimmed + '\n'));
+        this.log(trimmed, 'tx');
+        return true;
+      } catch (err: any) {
+        console.warn('Error sending BLE command:', err);
+        this.log(`Bluetooth કમાન્ડ લખવામાં ભૂલ: ${err.message}`, 'error');
+        return false;
+      }
+    }
+
+    // 2. If connected via Web Serial
     if (!this.port || !this.port.writable || this.status !== 'CONNECTED') {
-      this.log(`કમાન્ડ મોકલી શકાયો નહીં (USB જોડાયેલ નથી): ${trimmed}`, 'error');
+      this.log(`કમાન્ડ મોકલી શકાયો નહીં (જોડાયેલ નથી): ${trimmed}`, 'error');
       return false;
     }
 
@@ -459,6 +641,18 @@ class WebSerialService {
     clearInterval(this.staleCheckInterval);
     clearInterval(this.statusPollInterval);
 
+    // Disconnect BLE GATT
+    if (this.bluetoothDevice && this.bluetoothDevice.gatt && this.bluetoothDevice.gatt.connected) {
+      try {
+        this.bluetoothDevice.gatt.disconnect();
+      } catch {
+        // ignore
+      }
+    }
+    this.bluetoothDevice = null;
+    this.rxCharacteristic = null;
+    this.txCharacteristic = null;
+
     if (this.reader) {
       try {
         await this.reader.cancel();
@@ -496,6 +690,16 @@ class WebSerialService {
     clearInterval(this.statusPollInterval);
     this.port = null;
     this.reader = null;
+    if (this.bluetoothDevice && this.bluetoothDevice.gatt && this.bluetoothDevice.gatt.connected) {
+      try {
+        this.bluetoothDevice.gatt.disconnect();
+      } catch {
+        // ignore
+      }
+    }
+    this.bluetoothDevice = null;
+    this.rxCharacteristic = null;
+    this.txCharacteristic = null;
   }
 }
 

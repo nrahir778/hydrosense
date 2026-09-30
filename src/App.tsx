@@ -14,6 +14,7 @@ import { AutomationView } from './components/AutomationView';
 import { SafetyView } from './components/SafetyView';
 import { HardwareDocsView } from './components/HardwareDocsView';
 import { AiAssistantView } from './components/AiAssistantView';
+import { AndroidBluetoothModal } from './components/AndroidBluetoothModal';
 import { Footer } from './components/Footer';
 import { RefreshCw, Radio } from 'lucide-react';
 
@@ -44,6 +45,7 @@ export default function App() {
     isUsbSupported,
     isIframeEmbedded,
     isPermissionsDisallowed,
+    isAndroid,
     connectUsb,
     connectBluetooth,
     disconnectUsb,
@@ -54,6 +56,7 @@ export default function App() {
   } = useHydroSense();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [showAndroidModal, setShowAndroidModal] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('hydrosense_theme');
@@ -99,6 +102,8 @@ export default function App() {
         onDisconnectUsb={disconnectUsb}
         isUsbSupported={isUsbSupported}
         isPermissionsDisallowed={isPermissionsDisallowed}
+        isAndroid={isAndroid}
+        onOpenAndroidGuide={() => setShowAndroidModal(true)}
       />
 
       {/* School Project Info & Live Hardware Status Banner */}
@@ -111,6 +116,8 @@ export default function App() {
         onOpenSafety={() => setActiveTab('safety')}
         usbStatus={usbStatus}
         serialMode={serialMode}
+        isAndroid={isAndroid}
+        onOpenAndroidGuide={() => setShowAndroidModal(true)}
         onConnectUsb={connectUsb}
         onConnectBluetooth={connectBluetooth}
         onDisconnectUsb={disconnectUsb}
@@ -141,6 +148,13 @@ export default function App() {
                   <span>Open in Direct Tab ↗</span>
                 </a>
               )}
+              <button
+                onClick={() => setShowAndroidModal(true)}
+                className="px-3 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Android પર HC-05 કનેક્ટ કરવાની રીત"
+              >
+                <span>Android HC-05 મદદ</span>
+              </button>
               <button
                 onClick={connectUsb}
                 disabled={!isUsbSupported || isSubmitting}
@@ -177,6 +191,8 @@ export default function App() {
             usbTelemetry={usbTelemetry}
             isUsbSupported={isUsbSupported}
             isPermissionsDisallowed={isPermissionsDisallowed}
+            isAndroid={isAndroid}
+            onOpenAndroidGuide={() => setShowAndroidModal(true)}
             onConnectUsb={connectUsb}
             onConnectBluetooth={connectBluetooth}
             onDisconnectUsb={disconnectUsb}
@@ -200,6 +216,8 @@ export default function App() {
             usbTelemetry={usbTelemetry}
             isUsbSupported={isUsbSupported}
             isPermissionsDisallowed={isPermissionsDisallowed}
+            isAndroid={isAndroid}
+            onOpenAndroidGuide={() => setShowAndroidModal(true)}
             onConnectUsb={connectUsb}
             onConnectBluetooth={connectBluetooth}
             onDisconnectUsb={disconnectUsb}
@@ -249,6 +267,15 @@ export default function App() {
       <Footer
         connectionState={state.connectionState}
         onSelectTab={(tab) => setActiveTab(tab)}
+      />
+
+      {/* Android HC-05 Connection Guide Modal */}
+      <AndroidBluetoothModal
+        isOpen={showAndroidModal}
+        onClose={() => setShowAndroidModal(false)}
+        onConnectBluetooth={connectBluetooth}
+        onConnectUsb={connectUsb}
+        isIframeEmbedded={isIframeEmbedded}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import {
   RELAY_SAFETY_NOTES,
   USB_CONNECTION_GUIDE,
   BLUETOOTH_CONNECTION_GUIDE,
+  ANDROID_HC05_CONNECTION_GUIDE,
 } from '../hardware/hardwareDocs';
 import {
   Download,
@@ -15,6 +16,7 @@ import {
   Code2,
   Cable,
   Bluetooth,
+  Smartphone,
   AlertTriangle,
   ExternalLink,
   BookOpen,
@@ -528,11 +530,22 @@ void beepAlarm(int count) {
               </div>
             </div>
 
-            {/* HC-05 Bluetooth Connection Section */}
+            {/* Android HC-05 Bluetooth Connection Section */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-sky-500" />
+                <span>📱 Android પર HC-05 Bluetooth કનેક્શન (Google Chrome)</span>
+              </h4>
+              <pre className="p-4 rounded-xl bg-slate-900 text-sky-200 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed border border-sky-900/40">
+                {ANDROID_HC05_CONNECTION_GUIDE}
+              </pre>
+            </div>
+
+            {/* Windows HC-05 Bluetooth Connection Section */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Bluetooth className="w-4 h-4 text-blue-500" />
-                <span>HC-05 Windows Bluetooth Virtual COM Port સેટઅપ (9600 Baud)</span>
+                <span>💻 Windows PC: HC-05 Bluetooth Virtual COM Port સેટઅપ (9600 Baud)</span>
               </h4>
               <pre className="p-4 rounded-xl bg-slate-900 text-blue-200 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed border border-blue-900/40">
                 {BLUETOOTH_CONNECTION_GUIDE}

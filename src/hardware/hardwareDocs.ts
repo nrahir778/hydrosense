@@ -93,6 +93,32 @@ export const USB_CONNECTION_GUIDE = `
    Browser security restricts Web Serial inside iframes (Permissions Policy). Click 'Open in Direct Tab' (નવી ટેબમાં ખોલો) to open the app standalone, where Web Serial port selection is fully enabled.
 `;
 
+export const ANDROID_HC05_CONNECTION_GUIDE = `
+📱 Android પર HC-05 Bluetooth કનેક્શન માર્ગદર્શિકા:
+
+૧. Android માં HC-05 ને પેર (Pair) કરો:
+   - HC-05 મોડ્યુલને Arduino સાથે જોડો (VCC 5V, GND GND, LED ઝડપથી બ્લિંક થશે).
+   - તમારા Android ફોનમાં: સેટિંગ્સ (Settings) -> કનેક્ટેડ ડિવાઇસિસ (Bluetooth) -> "Pair new device" પર જાઓ.
+   - લિસ્ટમાં "HC-05" દેખાશે, તેના પર ટેપ કરો.
+   - પેરિંગ PIN પૂછે ત્યારે "1234" અથવા "0000" દાખલ કરો. HC-05 સફળતાપૂર્વક પેર થઈ જશે!
+
+૨. Google Chrome બ્રાઉઝરમાં એપ ખોલો:
+   - Android ફોનમાં Google Chrome બ્રાઉઝર વાપરો (Chrome 138+ માં Web Serial Bluetooth RFCOMM સપોર્ટ છે).
+   - જો આ એપ આઇફ્રેમ (Iframe) માં ખૂલેલી હોય, તો "Open in Direct Tab" (નવી ટેબમાં ખોલો) બટન પર ટેપ કરો જેથી બ્રાઉઝર પરવાનગી આપી શકે.
+
+૩. 'Connect Bluetooth' પર ટેપ કરો:
+   - એપ્લિકેશનના હેડર અથવા ડેશબોર્ડમાં "Connect Bluetooth" બટન પર ટેપ કરો.
+   - Chrome તમારા પેર થયેલા Bluetooth Serial ડિવાઇસીસનું પોપઅપ બતાવશે.
+   - તેમાં "HC-05" પસંદ કરો અને "Connect" દબાવો.
+
+૪. લાઈવ રીડિંગ્સ અને કંટ્રોલ:
+   - એપ આપમેળે 9600 Baud પર HC-05 સાથે કનેક્ટ થશે.
+   - સેન્સર રીડિંગ "DISTANCE:4.37,LEVEL:81.8%" મળતા જ ટાંકીનું લાઈવ લેવલ, અંતર અને એનિમેશન દેખાશે.
+
+૫. વિકલ્પ: USB-OTG દ્વારા Arduino Uno જોડાણ:
+   - જો તમારી પાસે USB-OTG એડેપ્ટર હોય, તો તમે સીધું Arduino Uno કેબલ એન્ડ્રોઇડ ફોનમાં ભરાવીને "Connect USB" પણ કરી શકો છો!
+`;
+
 export const BLUETOOTH_CONNECTION_GUIDE = `
 1. Pair HC-05 with Windows PC:
    - Power up HC-05 (VCC to 5V, GND to GND, LED blinks rapidly).

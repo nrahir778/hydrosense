@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SystemState, TankId, AiVoiceCommandResult, TankState } from '../types';
 import { createDefaultSystemState } from '../utils/initialState';
 import {
   webSerial,
+  isAndroidDevice,
   ArduinoTelemetry,
   UsbConnectionStatus,
   SerialConnectionMode,
@@ -27,6 +28,7 @@ export function useHydroSense() {
   const [usbTelemetry, setUsbTelemetry] = useState<ArduinoTelemetry | null>(() => webSerial.getLastTelemetry());
   const isUsbSupported = webSerial.isSupported();
   const isIframeEmbedded = webSerial.isIframe();
+  const isAndroid = useMemo(() => isAndroidDevice(), []);
   const [isPermissionsDisallowed, setIsPermissionsDisallowed] = useState<boolean>(() => webSerial.isPermissionsPolicyDisallowed());
 
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -616,6 +618,7 @@ export function useHydroSense() {
     isUsbSupported,
     isIframeEmbedded,
     isPermissionsDisallowed,
+    isAndroid,
     connectUsb,
     connectBluetooth,
     disconnectUsb,

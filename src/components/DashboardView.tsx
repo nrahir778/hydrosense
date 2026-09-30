@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Save,
   HelpCircle,
+  Smartphone,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -48,6 +49,8 @@ interface DashboardViewProps {
   onStopPump?: () => Promise<boolean>;
   onEmergencyStop?: () => Promise<boolean>;
   onSetUsbTarget?: (pct: number) => Promise<boolean>;
+  isAndroid?: boolean;
+  onOpenAndroidGuide?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -62,6 +65,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   usbTelemetry = null,
   isUsbSupported = true,
   isPermissionsDisallowed = false,
+  isAndroid = false,
+  onOpenAndroidGuide,
   onConnectUsb,
   onConnectBluetooth,
   onDisconnectUsb,
@@ -225,6 +230,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   >
                     <Bluetooth className="w-4 h-4" />
                     <span>Connect Bluetooth</span>
+                  </button>
+                )}
+                {onOpenAndroidGuide && (
+                  <button
+                    onClick={onOpenAndroidGuide}
+                    className="px-3 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Android પર HC-05 કનેક્ટ કરવાની રીત જુઓ"
+                  >
+                    <Smartphone className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className="hidden sm:inline">Android મદદ</span>
+                    <span className="sm:hidden">Android</span>
                   </button>
                 )}
               </>

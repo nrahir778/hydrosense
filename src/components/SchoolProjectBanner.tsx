@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, ChevronRight, Cable, Bluetooth, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ChevronRight, Cable, Bluetooth, Smartphone, CheckCircle2 } from 'lucide-react';
 import { HardwareConnectionState } from '../types';
 import { UsbConnectionStatus, SerialConnectionMode } from '../services/webSerial';
 
@@ -12,6 +12,8 @@ interface SchoolProjectBannerProps {
   onOpenSafety: () => void;
   usbStatus?: UsbConnectionStatus;
   serialMode?: SerialConnectionMode;
+  isAndroid?: boolean;
+  onOpenAndroidGuide?: () => void;
   onConnectUsb?: () => void;
   onConnectBluetooth?: () => void;
   onDisconnectUsb?: () => void;
@@ -23,6 +25,8 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
   onOpenSafety,
   usbStatus = 'DISCONNECTED',
   serialMode = 'USB',
+  isAndroid = false,
+  onOpenAndroidGuide,
   onConnectUsb,
   onConnectBluetooth,
   onDisconnectUsb,
@@ -79,6 +83,17 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          {onOpenAndroidGuide && (
+            <button
+              onClick={onOpenAndroidGuide}
+              className="text-xs text-blue-700 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+              title="Android પર HC-05 બ્લૂટૂથ કનેક્ટ કરવાની રીત"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Android HC-05</span>
+            </button>
+          )}
+          {onOpenAndroidGuide && <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">|</span>}
           <button
             onClick={onOpenHardware}
             className="text-xs text-sky-700 dark:text-sky-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"

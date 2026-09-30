@@ -41,9 +41,9 @@ const ai = hasGeminiKey
 
 app.use(express.json());
 
-// Set Permissions-Policy header to allow Web Serial in top-level context
+// Set Permissions-Policy header to allow Web Serial and Web Bluetooth in top-level context
 app.use((_req, res, next) => {
-  res.setHeader('Permissions-Policy', 'serial=(self "*")');
+  res.setHeader('Permissions-Policy', 'serial=(self "*"), bluetooth=(self "*")');
   next();
 });
 
