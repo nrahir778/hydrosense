@@ -1,0 +1,40 @@
+{
+  "id": "/",
+  "name": "શ્રી સરકારી માધ્યમિક શાળા–લાખાપર | હાઈડ્રોસેન્સ IoT",
+  "short_name": "હાઈડ્રોસેન્સ",
+  "description": "Arduino Uno HC-SR04 Smart Water Tank Management & Live Telemetry System",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "lang": "gu-IN",
+  "categories": ["utilities", "productivity", "education"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

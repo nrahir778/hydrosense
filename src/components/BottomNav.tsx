@@ -1,6 +1,7 @@
 import React from 'react';
 import { Gauge, Sliders, Cpu, ShieldAlert, Wrench, Sparkles } from 'lucide-react';
 import { ActiveTab } from './Header';
+import { triggerHaptic } from '../utils/androidOptimizations';
 
 interface BottomNavProps {
   activeTab: ActiveTab;
@@ -23,7 +24,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800/80 px-1 pb-safe">
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800/80 px-1 select-none"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.35rem)' }}
+    >
       <div className="grid grid-cols-6 h-14 items-center">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -31,8 +35,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           return (
             <button
               key={tab.id}
-              onClick={() => onSelectTab(tab.id)}
-              className={`flex flex-col items-center justify-center min-h-[44px] min-w-[36px] relative py-1 transition-colors ${
+              onClick={() => {
+                triggerHaptic('tap');
+                onSelectTab(tab.id);
+              }}
+              className={`flex flex-col items-center justify-center min-h-[44px] min-w-[36px] relative py-1 transition-colors cursor-pointer active:scale-95 ${
                 isActive
                   ? 'text-sky-600 dark:text-sky-400 font-bold'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'

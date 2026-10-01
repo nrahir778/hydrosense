@@ -15,6 +15,7 @@ import { SafetyView } from './components/SafetyView';
 import { HardwareDocsView } from './components/HardwareDocsView';
 import { AiAssistantView } from './components/AiAssistantView';
 import { AndroidBluetoothModal } from './components/AndroidBluetoothModal';
+import { AndroidInstallBanner } from './components/AndroidInstallBanner';
 import { Footer } from './components/Footer';
 import { RefreshCw, Radio } from 'lucide-react';
 
@@ -86,6 +87,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans">
+      {/* Android Mobile PWA WebAPK Install Prompt Banner */}
+      <AndroidInstallBanner />
+
       {/* Top Header with School Pride Banner and USB Controller Status */}
       <Header
         activeTab={activeTab}

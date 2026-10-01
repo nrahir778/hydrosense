@@ -23,7 +23,14 @@ import {
   Save,
   HelpCircle,
   Smartphone,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import {
+  requestScreenWakeLock,
+  releaseScreenWakeLock,
+  triggerHaptic,
+} from '../utils/androidOptimizations';
 
 interface DashboardViewProps {
   state: SystemState;
@@ -92,7 +99,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const isPumpRunning = tank.pumpStatus === 'RUNNING';
   const isStale = Boolean(usbTelemetry?.isStale);
 
+  // Android Screen Wake Lock state (keeps screen awake while filling or observing)
+  const [keepAwake, setKeepAwake] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (keepAwake || isPumpRunning) {
+      requestScreenWakeLock();
+    } else {
+      releaseScreenWakeLock();
+    }
+    return () => {
+      releaseScreenWakeLock();
+    };
+  }, [keepAwake, isPumpRunning]);
+
+  const toggleKeepAwake = async () => {
+    triggerHaptic('tap');
+    if (keepAwake) {
+      await releaseScreenWakeLock();
+      setKeepAwake(false);
+    } else {
+      const ok = await requestScreenWakeLock();
+      setKeepAwake(ok);
+    }
+  };
+
   const handleTargetChange = (val: number) => {
+    triggerHaptic('tap');
     const clamped = Math.max(10, Math.min(100, Math.round(val / 5) * 5));
     setSelectedTarget(clamped);
     if (onSetUsbTarget && isUsbConnected) {
@@ -101,6 +134,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleStartFilling = async () => {
+    triggerHaptic('start');
     setActionFeedback(null);
     if (!isUsbConnected) {
       setActionFeedback('USB જોડાયેલ નથી. કૃપા કરીને પહેલા "Connect USB" પર ક્લિક કરો.');
@@ -123,6 +157,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleStopPump = async () => {
+    triggerHaptic('stop');
     setActionFeedback(null);
     if (onStopPump) {
       await onStopPump();
@@ -131,6 +166,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleEmergencyStop = async () => {
+    triggerHaptic('emergency');
     setActionFeedback(null);
     if (onEmergencyStop) {
       await onEmergencyStop();
@@ -255,6 +291,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             )}
 
+            {/* Screen Wake Lock Button (Android Display & Screen Awake Optimizer) */}
+            <button
+              onClick={toggleKeepAwake}
+              className={`px-3 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                keepAwake || isPumpRunning
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+              }`}
+              title="Android પર સ્ક્રીન સતત ચાલુ રાખો (Screen Wake Lock)"
+            >
+              {keepAwake || isPumpRunning ? (
+                <Eye className="w-4 h-4 text-amber-600 animate-pulse" />
+              ) : (
+                <EyeOff className="w-4 h-4 text-slate-400" />
+              )}
+              <span className="hidden sm:inline">
+                {keepAwake || isPumpRunning ? 'સ્ક્રીન Awake' : 'સ્ક્રીન સ્લીપ'}
+              </span>
+              <span className="sm:hidden">Awake</span>
+            </button>
+
             <button
               onClick={() => onRefresh()}
               disabled={isSubmitting}
@@ -276,6 +333,59 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Android Mobile USB-OTG & Bluetooth Helper Card */}
+      {isAndroid && !isUsbConnected && (
+        <div className="bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 dark:from-sky-950/40 dark:via-blue-950/40 dark:to-indigo-950/40 border border-sky-200 dark:border-sky-800/80 rounded-2xl p-4 text-xs space-y-2.5 shadow-xs">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 font-bold text-sky-900 dark:text-sky-200">
+              <Smartphone className="w-4 h-4 text-sky-600" />
+              <span>Android સ્માર્ટફોન કનેક્શન સહાયક (OTG & Bluetooth):</span>
+            </div>
+            <span className="text-[11px] text-sky-700 dark:text-sky-300 font-medium">
+              115200 Baud OTG / 9600 Baud HC-05
+            </span>
+          </div>
+          <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+            તમારા Android ફોનમાં Type-C to USB-A OTG એડેપ્ટર જોડી <strong>Connect USB</strong> પર ટેપ કરો. જો કનેક્ટ ન થાય, તો ફોનના <span className="font-semibold text-slate-800 dark:text-slate-200">Settings &gt; Additional Settings &gt; OTG Connection</span> ચાલુ કરો.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap pt-0.5">
+            <button
+              onClick={() => {
+                triggerHaptic('tap');
+                onConnectUsb?.();
+              }}
+              disabled={!isUsbSupported || isSubmitting}
+              className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[44px]"
+            >
+              <Cable className="w-3.5 h-3.5" />
+              <span>Connect USB (OTG 115200)</span>
+            </button>
+            <button
+              onClick={() => {
+                triggerHaptic('tap');
+                onConnectBluetooth?.();
+              }}
+              disabled={!isUsbSupported || isSubmitting}
+              className="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[44px]"
+            >
+              <Bluetooth className="w-3.5 h-3.5" />
+              <span>Connect Bluetooth</span>
+            </button>
+            {onOpenAndroidGuide && (
+              <button
+                onClick={() => {
+                  triggerHaptic('tap');
+                  onOpenAndroidGuide();
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer min-h-[44px]"
+              >
+                <span>વિગતવાર માર્ગદર્શિકા ↗</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Web Serial Browser Compatibility Alert */}
       {!isUsbSupported && (

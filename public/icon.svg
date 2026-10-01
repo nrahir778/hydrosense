@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+    <linearGradient id="dropGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.9" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0369a1" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Background Squircle with safe margin -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Outer Pulse Ring -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#38bdf8" stroke-width="4" stroke-opacity="0.25" stroke-dasharray="8 8" />
+
+  <!-- Central Water Drop Symbol -->
+  <g filter="url(#glow)">
+    <path d="M 256 100 C 256 100 156 240 156 316 C 156 371.2 200.8 416 256 416 C 311.2 416 356 371.2 356 316 C 356 240 256 100 256 100 Z" fill="url(#dropGrad)" />
+  </g>
+
+  <!-- Wave lines inside droplet -->
+  <path d="M 180 320 Q 218 300 256 320 T 332 320 C 332 350 310 380 256 390 C 202 380 180 350 180 320 Z" fill="url(#waveGrad)" />
+
+  <!-- Specular Highlight Bubble -->
+  <ellipse cx="220" cy="240" rx="24" ry="40" transform="rotate(-30 220 240)" fill="#ffffff" fill-opacity="0.45" />
+
+  <!-- Smart IoT Sensor Dots & Waves -->
+  <circle cx="256" cy="180" r="8" fill="#ffffff" />
+  <circle cx="256" cy="256" r="6" fill="#ffffff" fill-opacity="0.8" />
+  <circle cx="256" cy="330" r="5" fill="#ffffff" fill-opacity="0.6" />
+
+  <!-- Tech Accent Border -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.15" />
+</svg>
