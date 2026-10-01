@@ -172,7 +172,7 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
             }`}
           >
             <Cable className="w-3.5 h-3.5" />
-            <span>૩. USB-OTG (115200)</span>
+            <span>૩. USB-OTG (9600/115200)</span>
           </button>
         </div>
 
@@ -283,7 +283,7 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
                 <span>USB-OTG કેબલ વડે જોડાણ (Android & Laptop સૌથી વિશ્વસનીય):</span>
               </div>
               <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                તમારા Android ફોનમાં Type-C OTG એડેપ્ટર વડે Arduino Uno ની USB કેબલ જોડો. Google Chrome માં Web Serial API દ્વારા 115200 Baud પર ૧૦૦% સ્થિર અને સીધું લાઈવ મોનિટરિંગ થાય છે.
+                તમારા Android ફોનમાં Type-C OTG એડેપ્ટર વડે Arduino Uno ની USB કેબલ જોડો. Google Chrome માં Web Serial API દ્વારા 9600 Baud (ડીફોલ્ટ) અથવા 115200 Baud પર ૧૦૦% સ્થિર અને સીધું લાઈવ મોનિટરિંગ થાય છે.
               </p>
               {onConnectUsb && (
                 <div className="pt-1">
@@ -295,7 +295,7 @@ export const AndroidBluetoothModal: React.FC<AndroidBluetoothModalProps> = ({
                     className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                   >
                     <Cable className="w-4 h-4" />
-                    <span>Connect USB-OTG (115200 Baud)</span>
+                    <span>Connect USB-OTG</span>
                   </button>
                 </div>
               )}

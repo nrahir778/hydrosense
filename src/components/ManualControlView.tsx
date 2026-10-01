@@ -22,6 +22,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
+import { BaudRateSelector } from './BaudRateSelector';
 
 interface ManualControlViewProps {
   state: SystemState;
@@ -37,6 +38,8 @@ interface ManualControlViewProps {
   // USB & Bluetooth Web Serial
   usbStatus?: UsbConnectionStatus;
   serialMode?: SerialConnectionMode;
+  usbBaudRate?: number;
+  onSelectBaudRate?: (rate: number) => void;
   usbError?: string | null;
   usbTelemetry?: ArduinoTelemetry | null;
   isUsbSupported?: boolean;
@@ -61,6 +64,8 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
   isSubmitting,
   usbStatus = 'DISCONNECTED',
   serialMode = 'USB',
+  usbBaudRate = 9600,
+  onSelectBaudRate,
   usbError = null,
   usbTelemetry = null,
   isUsbSupported = true,
@@ -215,7 +220,7 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                   <span>
                     {serialMode === 'BLUETOOTH'
                       ? 'Bluetooth HC-05 Connected (9600 Baud)'
-                      : 'USB Serial Connected (115200 Baud)'}
+                      : `USB Serial Connected (${usbBaudRate || 9600} Baud)`}
                   </span>
                 </div>
                 {onDisconnectUsb && (
@@ -234,12 +239,20 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                   <span className="w-2 h-2 rounded-full bg-slate-400" />
                   <span>Offline</span>
                 </div>
+                {onSelectBaudRate && (
+                  <BaudRateSelector
+                    compact
+                    value={usbBaudRate}
+                    onChange={onSelectBaudRate}
+                    disabled={!isUsbSupported || isSubmitting}
+                  />
+                )}
                 {onConnectUsb && (
                   <button
                     onClick={onConnectUsb}
                     disabled={!isUsbSupported || isSubmitting}
                     className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                    title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
+                    title={`Arduino Uno USB સાથે જોડાઓ (${usbBaudRate || 9600} Baud)`}
                   >
                     <Cable className="w-3.5 h-3.5" />
                     <span>Connect USB</span>
@@ -366,7 +379,7 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                 <span>વાસ્તવિક સ્થિતિ અને ટેલિમેટ્રી (Live Status)</span>
               </h3>
               <span className="text-[11px] sm:text-xs font-mono text-slate-400">
-                115200 Baud / 9600 Baud
+                {usbBaudRate || 9600} Baud USB / 9600 Baud BT
               </span>
             </div>
 
@@ -657,7 +670,7 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
           <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Terminal className="w-4 h-4 text-indigo-500" />
-              <span>Arduino Uno સીરીયલ પ્રોટોકોલ વિગતો (115200 Baud / 9600 Baud)</span>
+              <span>Arduino Uno સીરીયલ પ્રોટોકોલ વિગતો (9600 Baud Default / 115200 Baud Compatible)</span>
             </h4>
 
             <div className="text-xs text-slate-600 dark:text-slate-400 space-y-2">

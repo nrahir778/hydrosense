@@ -3,6 +3,7 @@ import { ShieldAlert, Sun, Moon, Cpu, GraduationCap, Sparkles, RotateCw, Cable, 
 import { HardwareConnectionState } from '../types';
 import { UsbConnectionStatus, SerialConnectionMode } from '../services/webSerial';
 import { triggerHaptic } from '../utils/androidOptimizations';
+import { BaudRateSelector } from './BaudRateSelector';
 
 export type ActiveTab = 'dashboard' | 'manual' | 'automation' | 'safety' | 'hardware' | 'ai';
 
@@ -19,6 +20,8 @@ interface HeaderProps {
   onOpenSafety: () => void;
   usbStatus?: UsbConnectionStatus;
   serialMode?: SerialConnectionMode;
+  usbBaudRate?: number;
+  onSelectBaudRate?: (rate: number) => void;
   onConnectUsb?: () => void;
   onConnectBluetooth?: () => void;
   onDisconnectUsb?: () => void;
@@ -41,6 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSafety,
   usbStatus = 'DISCONNECTED',
   serialMode = 'USB',
+  usbBaudRate = 9600,
+  onSelectBaudRate,
   onConnectUsb,
   onConnectBluetooth,
   onDisconnectUsb,
@@ -71,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <div className="hidden sm:flex items-center gap-2 text-[11px] sm:text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/20">
             <Cable className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Arduino Uno USB Serial (115200 Baud)</span>
+            <span>Arduino Uno USB ({usbBaudRate || 9600} Baud Default)</span>
           </div>
         </div>
       </div>
@@ -211,10 +216,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <Cable className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
               )}
               <span className="hidden sm:inline">
-                {serialMode === 'BLUETOOTH' ? 'Bluetooth HC-05 Connected' : 'USB Connected'}
+                {serialMode === 'BLUETOOTH' ? 'Bluetooth HC-05 (9600)' : `USB Connected (${usbBaudRate || 9600})`}
               </span>
               <span className="sm:hidden">
-                {serialMode === 'BLUETOOTH' ? 'BT On' : 'USB On'}
+                {serialMode === 'BLUETOOTH' ? 'BT On' : `USB (${usbBaudRate || 9600})`}
               </span>
               {onDisconnectUsb && (
                 <button
@@ -252,6 +257,14 @@ export const Header: React.FC<HeaderProps> = ({
                 </a>
               ) : (
                 <div className="flex items-center gap-1">
+                  {onSelectBaudRate && (
+                    <BaudRateSelector
+                      compact
+                      value={usbBaudRate}
+                      onChange={onSelectBaudRate}
+                      disabled={!isUsbSupported}
+                    />
+                  )}
                   {onConnectUsb && (
                     <button
                       onClick={() => {
@@ -260,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                       disabled={!isUsbSupported}
                       className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs active:scale-95 min-h-[36px]"
-                      title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
+                      title={`Arduino Uno USB સાથે જોડાઓ (${usbBaudRate || 9600} Baud)`}
                     >
                       <Cable className="w-3.5 h-3.5" />
                       <span>USB</span>

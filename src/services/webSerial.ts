@@ -28,8 +28,11 @@ export interface SerialErrorDetails {
   message: string;
 }
 
+export const SUPPORTED_BAUD_RATES = [9600, 115200, 57600, 38400, 19200] as const;
+export type SupportedBaudRate = typeof SUPPORTED_BAUD_RATES[number];
+
 type TelemetryListener = (data: ArduinoTelemetry) => void;
-type StatusListener = (status: UsbConnectionStatus, error?: SerialErrorDetails | null, mode?: SerialConnectionMode) => void;
+type StatusListener = (status: UsbConnectionStatus, error?: SerialErrorDetails | null, mode?: SerialConnectionMode, baudRate?: number) => void;
 type LogListener = (msg: string, type: 'info' | 'rx' | 'tx' | 'error') => void;
 
 class WebSerialService {
@@ -45,6 +48,10 @@ class WebSerialService {
   private staleCheckInterval: any = null;
   private statusPollInterval: any = null;
 
+  // Baud rate configuration: Default is 9600 to match Arduino firmware Serial.begin(9600)
+  private currentUsbBaudRate: number = 9600;
+  private activeBaudRate: number = 9600;
+
   // Web Bluetooth (GATT BLE) fields
   private bluetoothDevice: any = null;
   private rxCharacteristic: any = null;
@@ -56,6 +63,15 @@ class WebSerialService {
 
   constructor() {
     if (typeof window !== 'undefined') {
+      const savedBaud = localStorage.getItem('hydrosense_usb_baud_rate');
+      if (savedBaud) {
+        const parsed = parseInt(savedBaud, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          this.currentUsbBaudRate = parsed;
+          this.activeBaudRate = parsed;
+        }
+      }
+
       const savedUrl = localStorage.getItem('hydrosense_bt_bridge_url');
       if (savedUrl) {
         this.bridgeUrl = savedUrl;
@@ -137,6 +153,25 @@ class WebSerialService {
     return this.mode;
   }
 
+  public getUsbBaudRate(): number {
+    return this.currentUsbBaudRate || 9600;
+  }
+
+  public setUsbBaudRate(rate: number): void {
+    const validRate = Number(rate) || 9600;
+    this.currentUsbBaudRate = validRate;
+    if (this.mode === 'USB') {
+      this.activeBaudRate = validRate;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hydrosense_usb_baud_rate', String(validRate));
+    }
+  }
+
+  public getActiveBaudRate(): number {
+    return this.activeBaudRate || (this.mode === 'BLUETOOTH' ? 9600 : this.currentUsbBaudRate || 9600);
+  }
+
   public getLastTelemetry(): ArduinoTelemetry | null {
     return this.lastTelemetry;
   }
@@ -149,7 +184,7 @@ class WebSerialService {
 
   public onStatus(listener: StatusListener): () => void {
     this.statusListeners.add(listener);
-    listener(this.status, null, this.mode);
+    listener(this.status, null, this.mode, this.getActiveBaudRate());
     return () => this.statusListeners.delete(listener);
   }
 
@@ -160,7 +195,7 @@ class WebSerialService {
 
   private notifyStatus(status: UsbConnectionStatus, err?: SerialErrorDetails | null) {
     this.status = status;
-    this.statusListeners.forEach((fn) => fn(status, err, this.mode));
+    this.statusListeners.forEach((fn) => fn(status, err, this.mode, this.getActiveBaudRate()));
   }
 
   private notifyTelemetry(data: ArduinoTelemetry) {
@@ -173,10 +208,10 @@ class WebSerialService {
   }
 
   /**
-   * Connect via Web Serial API (Direct Arduino Uno USB, 115200 Baud)
+   * Connect via Web Serial API (Direct Arduino Uno USB, Default 9600 Baud, Selectable)
    * Preserves USB Serial support for laptops and Android USB-OTG
    */
-  public async connectUsb(): Promise<boolean> {
+  public async connectUsb(customBaudRate?: number): Promise<boolean> {
     const isAndroid = isAndroidDevice();
     if (!this.isWebSerialSupported()) {
       const err: SerialErrorDetails = {
@@ -210,9 +245,11 @@ class WebSerialService {
     this.cleanup();
 
     this.mode = 'USB';
-    const baudRate = 115200;
+    const baudRate = customBaudRate || this.getUsbBaudRate() || 9600;
+    this.setUsbBaudRate(baudRate);
+    this.activeBaudRate = baudRate;
     this.notifyStatus('CONNECTING', null);
-    this.log('Arduino Uno USB (115200 Baud) પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...', 'info');
+    this.log(`Arduino Uno USB (${baudRate} Baud) પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...`, 'info');
 
     try {
       this.port = await (navigator as any).serial.requestPort();
@@ -221,7 +258,7 @@ class WebSerialService {
 
       this.keepReading = true;
       this.notifyStatus('CONNECTED', null);
-      this.log('Arduino Uno USB સાથે સફળતાપૂર્વક જોડાઈ ગયું! (115200 Baud)', 'info');
+      this.log(`Arduino Uno USB સાથે સફળતાપૂર્વક જોડાઈ ગયું! (${baudRate} Baud)`, 'info');
 
       this.startReadingLoop();
       this.setupHeartbeat();
@@ -316,6 +353,7 @@ class WebSerialService {
 
     this.mode = 'BLUETOOTH';
     const baudRate = 9600; // HC-05 default SPP baud rate
+    this.activeBaudRate = 9600;
     this.notifyStatus('CONNECTING', null);
     this.log('HC-05 Paired Bluetooth Virtual COM Port (9600 Baud) પોર્ટ સિલેક્ટર ખોલી રહ્યું છે...', 'info');
 

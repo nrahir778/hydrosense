@@ -3,6 +3,7 @@ import { ShieldCheck, ChevronRight, Cable, Bluetooth, Smartphone, AlertTriangle,
 import { HardwareConnectionState } from '../types';
 import { UsbConnectionStatus, SerialConnectionMode } from '../services/webSerial';
 import { triggerHaptic } from '../utils/androidOptimizations';
+import { BaudRateSelector } from './BaudRateSelector';
 
 interface SchoolProjectBannerProps {
   connectionState: HardwareConnectionState;
@@ -13,6 +14,8 @@ interface SchoolProjectBannerProps {
   onOpenSafety: () => void;
   usbStatus?: UsbConnectionStatus;
   serialMode?: SerialConnectionMode;
+  usbBaudRate?: number;
+  onSelectBaudRate?: (rate: number) => void;
   isAndroid?: boolean;
   onOpenAndroidGuide?: () => void;
   onConnectUsb?: () => void;
@@ -30,6 +33,8 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
   onOpenSafety,
   usbStatus = 'DISCONNECTED',
   serialMode = 'USB',
+  usbBaudRate = 9600,
+  onSelectBaudRate,
   isAndroid = false,
   onOpenAndroidGuide,
   onConnectUsb,
@@ -96,7 +101,7 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
               serialMode === 'BLUETOOTH' ? (
                 'HC-05 SPP (9600 Baud) લાઈવ ટેલિમેટ્રી સક્રિય.'
               ) : (
-                'Arduino Uno Web Serial (115200 Baud) લાઈવ ટેલિમેટ્રી સક્રિય.'
+                `Arduino Uno Web Serial (${usbBaudRate || 9600} Baud) લાઈવ ટેલિમેટ્રી સક્રિય.`
               )
             ) : usbError ? (
               <span className="text-rose-700 dark:text-rose-300 font-medium">{usbError}</span>
@@ -123,6 +128,15 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
                 </a>
               )}
 
+              {onSelectBaudRate && (
+                <BaudRateSelector
+                  compact
+                  value={usbBaudRate}
+                  onChange={onSelectBaudRate}
+                  disabled={!isUsbSupported || isSubmitting}
+                />
+              )}
+
               {onConnectUsb && (
                 <button
                   onClick={() => {
@@ -131,7 +145,7 @@ export const SchoolProjectBanner: React.FC<SchoolProjectBannerProps> = ({
                   }}
                   disabled={!isUsbSupported || isSubmitting}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-95 min-h-[36px]"
-                  title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
+                  title={`Arduino Uno USB સાથે જોડાઓ (${usbBaudRate || 9600} Baud)`}
                 >
                   <Cable className="w-3.5 h-3.5" />
                   <span>Connect USB</span>

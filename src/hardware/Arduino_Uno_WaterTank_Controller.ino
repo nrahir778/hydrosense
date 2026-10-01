@@ -3,7 +3,7 @@
   શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર
   HydroSense - Smart Single Water Tank Controller Firmware
   Platform: Arduino Uno R3 (Atmega328P)
-  Communication: Direct USB Serial & HC-05 Bluetooth (115200 Baud / 9600 Baud)
+  Communication: Direct USB Serial & HC-05 Bluetooth (9600 Baud Default / 115200 Baud Compatible)
   Sensor: HC-SR04 Ultrasonic Sensor
   Actuator: 5V Relay Module (Active-LOW, Optocoupled)
   ========================================================================================
@@ -109,8 +109,8 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
 
-  // Initialize Serial communication (115200 Baud for USB, compatible with HC-05)
-  Serial.begin(115200);
+  // Initialize Serial communication (9600 Baud default for USB and HC-05 Bluetooth)
+  Serial.begin(9600);
   serialInputBuffer.reserve(64);
 
   // Boot chime
@@ -118,7 +118,7 @@ void setup() {
   delay(120);
   tone(PIN_BUZZER, 2500, 150);
 
-  Serial.println(F("INFO:Arduino Uno HydroSense Controller Initialized"));
+  Serial.println(F("INFO:Arduino Uno HydroSense Controller Initialized (9600 Baud)"));
   Serial.println(F("INFO:Pump is OFF by default. Mode is MANUAL. Target is 75%."));
 }
 

@@ -24,6 +24,7 @@ export function useHydroSense() {
   // Web Serial State (USB & HC-05 Bluetooth Virtual COM)
   const [usbStatus, setUsbStatus] = useState<UsbConnectionStatus>(() => webSerial.getStatus());
   const [serialMode, setSerialMode] = useState<SerialConnectionMode>(() => webSerial.getMode());
+  const [usbBaudRate, setUsbBaudRateState] = useState<number>(() => webSerial.getUsbBaudRate());
   const [usbError, setUsbError] = useState<string | null>(null);
   const [usbTelemetry, setUsbTelemetry] = useState<ArduinoTelemetry | null>(() => webSerial.getLastTelemetry());
   const isUsbSupported = webSerial.isSupported();
@@ -34,18 +35,26 @@ export function useHydroSense() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Set user-selected USB baud rate (9600 default, 115200, etc.)
+  const setUsbBaudRate = useCallback((rate: number) => {
+    webSerial.setUsbBaudRate(rate);
+    setUsbBaudRateState(rate);
+  }, []);
+
   // Controller is ONLY considered connected when real hardware telemetry is online via USB
   const isControllerConnected =
     usbStatus === 'CONNECTED' &&
     Boolean(usbTelemetry && !usbTelemetry.isStale && state.tank?.hasRealTelemetry);
 
-  // Connect Web Serial via USB (115200 Baud)
-  const connectUsb = useCallback(async (): Promise<boolean> => {
+  // Connect Web Serial via USB with selected baud rate (Default 9600)
+  const connectUsb = useCallback(async (customBaudRate?: number): Promise<boolean> => {
     setIsSubmitting(true);
     setActionError(null);
     setUsbError(null);
     try {
-      const ok = await webSerial.connectUsb();
+      const rate = customBaudRate || usbBaudRate || 9600;
+      setUsbBaudRateState(rate);
+      const ok = await webSerial.connectUsb(rate);
       return ok;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'USB પોર્ટ સાથે જોડાણમાં ભૂલ આવી';
@@ -54,7 +63,7 @@ export function useHydroSense() {
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  }, [usbBaudRate]);
 
   // Connect via Bluetooth (Intelligent Handler supporting Paired COM & Bridge)
   const connectBluetooth = useCallback(
@@ -239,10 +248,13 @@ export function useHydroSense() {
 
   // WebSerial Subscriptions
   useEffect(() => {
-    const unsubStatus = webSerial.onStatus((status, err, mode) => {
+    const unsubStatus = webSerial.onStatus((status, err, mode, baud) => {
       setUsbStatus(status);
       if (mode) {
         setSerialMode(mode);
+      }
+      if (baud) {
+        setUsbBaudRateState(baud);
       }
       if (err) {
         setUsbError(err.message);
@@ -694,6 +706,8 @@ export function useHydroSense() {
     // Web Serial USB & Bluetooth Additions
     usbStatus,
     serialMode,
+    usbBaudRate,
+    setUsbBaudRate,
     usbError,
     usbTelemetry,
     isUsbSupported,

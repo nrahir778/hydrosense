@@ -37,7 +37,7 @@ export const HardwareDocsView: React.FC = () => {
   શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર
   HydroSense - Smart Single Water Tank Controller Firmware
   Platform: Arduino Uno R3 (Atmega328P)
-  Communication: Direct USB Serial & HC-05 Bluetooth (115200 Baud / 9600 Baud)
+  Communication: Direct USB Serial & HC-05 Bluetooth (9600 Baud Default / 115200 Baud Compatible)
   Sensor: HC-SR04 Ultrasonic Sensor
   Actuator: 5V Relay Module (Active-LOW, Optocoupled)
   ========================================================================================
@@ -52,7 +52,7 @@ export const HardwareDocsView: React.FC = () => {
   - Relay Module GND  -> Arduino GND
   - Piezo Buzzer (+)  -> Digital Pin 8 (Alarm & Chimes)
   - Status LED        -> Digital Pin 13 (Built-in)
-  - USB Cable         -> Connects directly to Computer running Chrome/Edge (115200 Baud)
+  - USB Cable         -> Connects directly to Computer running Chrome/Edge (9600 Baud Default)
 
   CALIBRATION VALUES:
   - Empty Distance (0% Level)  : 13.26 cm
@@ -125,14 +125,15 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
 
-  Serial.begin(115200);
+  // Initialize Serial (9600 Baud Default for USB and HC-05 Bluetooth)
+  Serial.begin(9600);
   serialInputBuffer.reserve(64);
 
   tone(PIN_BUZZER, 2000, 100);
   delay(120);
   tone(PIN_BUZZER, 2500, 150);
 
-  Serial.println(F("INFO:Arduino Uno HydroSense Controller Initialized"));
+  Serial.println(F("INFO:Arduino Uno HydroSense Controller Initialized (9600 Baud)"));
 }
 
 void loop() {
@@ -385,7 +386,7 @@ void beepAlarm(int count) {
               Arduino Uno USB હાર્ડવેર વાયરિંગ & ફર્મવેર ગાઈડ
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર · Arduino Uno (115200 Baud Web Serial)
+              શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર · Arduino Uno (9600 Baud Default / 115200 Web Serial)
             </p>
           </div>
 
@@ -551,7 +552,7 @@ void beepAlarm(int count) {
                   ૨. બ્રાઉઝર પરવાનગી (Web Serial)
                 </span>
                 <p className="text-xs text-indigo-800/80 dark:text-indigo-300/80 leading-relaxed">
-                  વેબ એપ્લિકેશનમાં <strong>Connect USB</strong> બટન પર ક્લિક કરો. બ્રાઉઝર પોપઅપમાં તમારું Arduino Uno પોર્ટ પસંદ કરો અને Connect પર ક્લિક કરો. બ્રાઉઝર 115200 બાઉડ પર પોર્ટ ઓપન કરશે.
+                  વેબ એપ્લિકેશનમાં <strong>Connect USB</strong> બટન પર ક્લિક કરો. બ્રાઉઝર પોપઅપમાં તમારું Arduino Uno પોર્ટ પસંદ કરો અને Connect પર ક્લિક કરો. બ્રાઉઝર ડિફોલ્ટ 9600 બાઉડ (અથવા તમારી પસંદ કરેલી બાઉડ રેટ) પર પોર્ટ ઓપન કરશે.
                 </p>
               </div>
 

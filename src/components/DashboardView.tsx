@@ -35,6 +35,7 @@ import {
   releaseScreenWakeLock,
   triggerHaptic,
 } from '../utils/androidOptimizations';
+import { BaudRateSelector } from './BaudRateSelector';
 
 interface DashboardViewProps {
   state: SystemState;
@@ -49,6 +50,8 @@ interface DashboardViewProps {
   // USB & Bluetooth Web Serial integration
   usbStatus?: UsbConnectionStatus;
   serialMode?: SerialConnectionMode;
+  usbBaudRate?: number;
+  onSelectBaudRate?: (rate: number) => void;
   usbError?: string | null;
   usbTelemetry?: ArduinoTelemetry | null;
   isUsbSupported?: boolean;
@@ -74,6 +77,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   isSubmitting,
   usbStatus = 'DISCONNECTED',
   serialMode = 'USB',
+  usbBaudRate = 9600,
+  onSelectBaudRate,
   usbError = null,
   usbTelemetry = null,
   isUsbSupported = true,
@@ -280,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span>
                     {serialMode === 'BLUETOOTH'
                       ? 'HC-05 Bluetooth Connected (9600 Baud)'
-                      : 'Arduino Uno USB Connected (115200 Baud)'}
+                      : `Arduino Uno USB Connected (${usbBaudRate || 9600} Baud)`}
                   </span>
                 </div>
               ) : usbStatus === 'CONNECTING' ? (
@@ -304,11 +309,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center flex-wrap gap-2.5">
             {!isUsbConnected ? (
               <>
+                {onSelectBaudRate && (
+                  <BaudRateSelector
+                    value={usbBaudRate || 9600}
+                    onChange={onSelectBaudRate}
+                    disabled={isSubmitting}
+                    label="USB Baud:"
+                  />
+                )}
                 <button
                   onClick={onConnectUsb}
                   disabled={!isUsbSupported || isSubmitting}
                   className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all transform active:scale-95 cursor-pointer"
-                  title="Arduino Uno USB સીરીયલ પોર્ટ સાથે જોડાઓ (115200 Baud)"
+                  title={`Arduino Uno USB સીરીયલ પોર્ટ સાથે જોડાઓ (${usbBaudRate || 9600} Baud)`}
                 >
                   <Cable className="w-4 h-4" />
                   <span>Connect USB</span>
@@ -399,7 +412,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>Android સ્માર્ટફોન કનેક્શન સહાયક (OTG & Bluetooth):</span>
             </div>
             <span className="text-[11px] text-sky-700 dark:text-sky-300 font-medium">
-              115200 Baud OTG / 9600 Baud HC-05
+              {usbBaudRate || 9600} Baud USB (ડીફોલ્ટ 9600) / 9600 Baud HC-05
             </span>
           </div>
           <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
@@ -415,7 +428,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[44px]"
             >
               <Cable className="w-3.5 h-3.5" />
-              <span>Connect USB (OTG 115200)</span>
+              <span>Connect USB ({usbBaudRate || 9600} Baud)</span>
             </button>
             <button
               onClick={() => {
@@ -493,7 +506,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="font-bold">ચેતવણી: છેલ્લી ૩.૫ સેકન્ડથી Arduino Uno માંથી નવો ડેટા મળ્યો નથી (Stale Data).</span>
           </div>
           <span className="text-[11px] font-mono text-amber-800 dark:text-amber-300">
-            કેબલ કનેક્શન અને 115200 Baud દર તપાસો
+            કેબલ કનેક્શન અને {usbBaudRate || 9600} Baud દર તપાસો
           </span>
         </div>
       )}
@@ -540,7 +553,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {isUsbConnected
                     ? serialMode === 'BLUETOOTH'
                       ? 'HC-05 BT (9600 Baud)'
-                      : 'USB Serial (115200 Baud)'
+                      : `USB Serial (${usbBaudRate || 9600} Baud)`
                     : 'ઓફલાઇન'}
                 </span>
                 <span className={`w-2 h-2 rounded-full ${isUsbConnected ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />

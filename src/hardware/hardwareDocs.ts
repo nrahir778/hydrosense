@@ -84,10 +84,10 @@ export const USB_CONNECTION_GUIDE = `
    A COM port cannot be opened by two programs simultaneously.
 
 4. Click 'Connect USB' in the Web App:
-   When the browser prompt appears, select your Arduino Uno (or USB-SERIAL CH340 / FTDI) and click 'Connect' (115200 Baud).
+   When the browser prompt appears, select your Arduino Uno (or USB-SERIAL CH340 / FTDI) and click 'Connect' (9600 Baud Default, selectable up to 115200 Baud).
 
 5. Automatic Telemetry & Control:
-   The web app will communicate at 115200 Baud, automatically receiving live sensor readings ("DISTANCE:4.37,LEVEL:81.8%") and sending target fill commands.
+   The web app will communicate at 9600 Baud (matching Serial.begin(9600)), automatically receiving live sensor readings ("DISTANCE:4.37,LEVEL:81.8%") and sending target fill commands.
 
 6. If running in an embedded preview / Iframe:
    Browser security restricts Web Serial inside iframes (Permissions Policy). Click 'Open in Direct Tab' (નવી ટેબમાં ખોલો) to open the app standalone, where Web Serial port selection is fully enabled.
@@ -112,7 +112,7 @@ export const ANDROID_HC05_CONNECTION_GUIDE = `
 
 ૪. વ્યવહારુ ઉકેલ ૩: Android પર USB-OTG (સૌથી વિશ્વસનીય):
    - Type-C to USB-A OTG એડેપ્ટર વડે Arduino Uno ની USB કેબલ સીધી Android ફોનમાં લગાવો.
-   - Android Google Chrome માં "Connect USB" દબાવો (115200 Baud Web Serial).
+   - Android Google Chrome માં "Connect USB" દબાવો (9600 Baud Default, selectable 115200).
 `;
 
 export const BLUETOOTH_CONNECTION_GUIDE = `
@@ -126,7 +126,7 @@ export const BLUETOOTH_CONNECTION_GUIDE = `
      Runs locally on laptop or Android Termux, bridges HC-05 RFCOMM to ws://localhost:8088.
    - Method B: Laptop Paired Bluetooth Virtual COM Port (9600 Baud):
      Pair HC-05 in Windows/Mac/Linux OS Bluetooth settings, open the COM port at 9600 Baud via Web Serial.
-   - Method C: USB-OTG Direct Cable (115200 Baud):
+   - Method C: USB-OTG Direct Cable (9600 Baud Default / 115200 Baud):
      Direct physical USB link via Web Serial in Chrome on laptops and Android OTG.
 
 3. HC-05 Wiring with Arduino Uno:

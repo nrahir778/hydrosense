@@ -41,6 +41,8 @@ export default function App() {
     // Web Serial USB & Bluetooth Additions
     usbStatus,
     serialMode,
+    usbBaudRate,
+    setUsbBaudRate,
     usbError,
     usbTelemetry,
     isUsbSupported,
@@ -106,6 +108,8 @@ export default function App() {
         onOpenSafety={() => setActiveTab('safety')}
         usbStatus={usbStatus}
         serialMode={serialMode}
+        usbBaudRate={usbBaudRate}
+        onSelectBaudRate={setUsbBaudRate}
         onConnectUsb={connectUsb}
         onConnectBluetooth={connectBluetooth}
         onDisconnectUsb={disconnectUsb}
@@ -125,6 +129,8 @@ export default function App() {
         onOpenSafety={() => setActiveTab('safety')}
         usbStatus={usbStatus}
         serialMode={serialMode}
+        usbBaudRate={usbBaudRate}
+        onSelectBaudRate={setUsbBaudRate}
         isAndroid={isAndroid}
         onOpenAndroidGuide={() => setShowAndroidModal(true)}
         onConnectUsb={connectUsb}
@@ -147,6 +153,8 @@ export default function App() {
             isSubmitting={isSubmitting}
             usbStatus={usbStatus}
             serialMode={serialMode}
+            usbBaudRate={usbBaudRate}
+            onSelectBaudRate={setUsbBaudRate}
             usbError={usbError}
             usbTelemetry={usbTelemetry}
             isUsbSupported={isUsbSupported}
@@ -174,6 +182,8 @@ export default function App() {
             onClearError={clearActionError}
             usbStatus={usbStatus}
             serialMode={serialMode}
+            usbBaudRate={usbBaudRate}
+            onSelectBaudRate={setUsbBaudRate}
             usbError={usbError}
             usbTelemetry={usbTelemetry}
             isUsbSupported={isUsbSupported}
