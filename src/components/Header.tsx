@@ -52,24 +52,24 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-xs">
       {/* Top Banner: Big School Name Bar (વિદ્યાલય ગૌરવ પટ્ટી) */}
-      <div className="bg-linear-to-r from-sky-700 via-blue-800 to-indigo-900 text-white py-2 px-4 shadow-inner">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-1.5 text-center md:text-left">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/30 shadow-xs">
-              <GraduationCap className="w-5 h-5 text-amber-300" />
+      <div className="bg-linear-to-r from-sky-700 via-blue-800 to-indigo-900 text-white py-1.5 sm:py-2 px-3 sm:px-4 shadow-inner">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-1 sm:gap-1.5 text-center md:text-left">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/30 shadow-xs">
+              <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
             </div>
             <div>
               {/* School Name in Big, Proud Font */}
-              <h1 className="text-base sm:text-xl md:text-2xl font-extrabold tracking-wide drop-shadow-xs leading-tight font-sans">
+              <h1 className="text-xs sm:text-lg md:text-xl font-extrabold tracking-wide drop-shadow-xs leading-tight font-sans">
                 શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર
               </h1>
-              <div className="text-[11px] sm:text-xs text-sky-200 font-medium">
+              <div className="text-[10px] sm:text-xs text-sky-200 font-medium">
                 વિજ્ઞાન અને ટેકનોલોજી ઇનોવેશન પ્રોજેક્ટ · સ્માર્ટ વોટર મેનેજમેન્ટ સિસ્ટમ
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] sm:text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/20">
+          <div className="hidden sm:flex items-center gap-2 text-[11px] sm:text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/20">
             <Cable className="w-3.5 h-3.5 text-emerald-300" />
             <span>Arduino Uno USB Serial (115200 Baud)</span>
           </div>
@@ -77,20 +77,20 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Main Navbar: Navigation and System Controls */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-2 sm:gap-4">
         {/* Project Branding */}
         <button
           onClick={() => onSelectTab('dashboard')}
-          className="text-left group flex items-center gap-2"
+          className="text-left group flex items-center gap-2 shrink-0 cursor-pointer"
         >
           <div className="w-8 h-8 rounded-lg bg-sky-500/10 dark:bg-sky-400/10 border border-sky-500/20 dark:border-sky-400/20 flex items-center justify-center text-sky-600 dark:text-sky-400 font-bold text-sm tracking-tight font-mono">
             H₂O
           </div>
           <div className="flex flex-col">
-            <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
+            <span className="text-xs sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
               હાઈડ્રોસેન્સ IoT
             </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+            <span className="hidden sm:inline text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
               Arduino Uno USB (૧૩.૨૬ / ૨.૪૦ cm)
             </span>
           </div>
@@ -165,11 +165,14 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Primary Hardware Status & Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Quick AI Voice Button */}
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Quick AI Voice Button (Laptop / Desktop) */}
           <button
-            onClick={() => onSelectTab('ai')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            onClick={() => {
+              triggerHaptic('tap');
+              onSelectTab('ai');
+            }}
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'ai'
                 ? 'bg-sky-600 text-white shadow-sm'
                 : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 dark:text-indigo-300 dark:border-indigo-900/50'
@@ -177,19 +180,21 @@ export const Header: React.FC<HeaderProps> = ({
             title="AI વોઇસ આસિસ્ટન્ટ ખોલો"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">AI વોઇસ</span>
+            <span>AI વોઇસ</span>
           </button>
 
-          {/* Android Mobile HC-05 Helper Button */}
+          {/* Android Mobile HC-05 Helper Button (Laptop & Tablet) */}
           {onOpenAndroidGuide && (
             <button
-              onClick={onOpenAndroidGuide}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 dark:text-sky-300 dark:border-sky-900/50 cursor-pointer"
+              onClick={() => {
+                triggerHaptic('tap');
+                onOpenAndroidGuide();
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 dark:text-sky-300 dark:border-sky-900/50 cursor-pointer"
               title="Android પર HC-05 Bluetooth કનેક્શન માર્ગદર્શિકા"
             >
               <Smartphone className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span className="hidden md:inline">Android HC-05</span>
-              <span className="md:hidden">Android</span>
+              <span>Android HC-05</span>
             </button>
           )}
 
@@ -268,11 +273,12 @@ export const Header: React.FC<HeaderProps> = ({
                         onConnectBluetooth();
                       }}
                       disabled={!isUsbSupported}
-                      className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs active:scale-95 min-h-[36px]"
+                      className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs active:scale-95 min-h-[36px]"
                       title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
                     >
                       <Bluetooth className="w-3.5 h-3.5" />
-                      <span>Bluetooth</span>
+                      <span className="hidden sm:inline">Bluetooth</span>
+                      <span className="sm:hidden">BT</span>
                     </button>
                   )}
                 </div>

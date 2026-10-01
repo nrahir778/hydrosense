@@ -128,63 +128,14 @@ export default function App() {
         onConnectUsb={connectUsb}
         onConnectBluetooth={connectBluetooth}
         onDisconnectUsb={disconnectUsb}
+        usbError={usbError}
+        isPermissionsDisallowed={isPermissionsDisallowed}
+        isUsbSupported={isUsbSupported}
+        isSubmitting={isSubmitting}
       />
 
-      {/* Informative Hardware Standby & Offline Banner with USB & Bluetooth Connection Options */}
-      {!isControllerConnected && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200/80 dark:border-amber-900/50 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-              <span className="font-bold text-slate-900 dark:text-white">Controller Offline:</span>
-              <span>
-                {usbError
-                  ? usbError
-                  : 'Arduino Uno (USB) અથવા HC-05 (Bluetooth) હાર્ડવેર હજી જોડાયેલ નથી. લાઈવ રીડિંગ્સ અને પંપ કંટ્રોલ માટે કનેક્ટ કરો.'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              {(isPermissionsDisallowed || (usbError && (usbError.includes('iframe') || usbError.includes('સુરક્ષા પ્રતિબંધ') || usbError.includes('પોલિસી')))) && typeof window !== 'undefined' && (
-                <a
-                  href={window.location.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
-                  title="એપને નવી વિન્ડો/ટેબમાં ખોલો જેથી બ્રાઉઝર સીરીયલ પોર્ટની પરવાનગી આપે"
-                >
-                  <span>Open in Direct Tab ↗</span>
-                </a>
-              )}
-              <button
-                onClick={() => setShowAndroidModal(true)}
-                className="px-3 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Android પર HC-05 કનેક્ટ કરવાની રીત"
-              >
-                <span>Android HC-05 મદદ</span>
-              </button>
-              <button
-                onClick={connectUsb}
-                disabled={!isUsbSupported || isSubmitting}
-                className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-                title="Arduino Uno USB સાથે જોડાઓ (115200 Baud)"
-              >
-                <span>Connect USB</span>
-              </button>
-              <button
-                onClick={() => connectBluetooth()}
-                disabled={!isUsbSupported || isSubmitting}
-                className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-                title="HC-05 Bluetooth Virtual COM Port સાથે જોડાઓ (9600 Baud)"
-              >
-                <span>Connect Bluetooth</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main View Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-20 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-24 md:pb-8">
         {activeTab === 'dashboard' && (
           <DashboardView
             state={state}

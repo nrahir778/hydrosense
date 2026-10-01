@@ -459,9 +459,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Main Grid: Left Animated Tank Graphic, Right Telemetry & Control Station */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
         {/* Left Column: Animated Tank Graphic (lg:col-span-5) */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 shadow-md flex flex-col items-center justify-center">
+        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-3.5 sm:p-6 shadow-md flex flex-col items-center justify-center">
           <TankGraphic
             tank={tank}
             calibration={calibration}
@@ -471,26 +471,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Right Column: Water-Level Control & Live Metrics (lg:col-span-7) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-5 sm:space-y-6">
           {/* Key Measurement Indicators: Target vs Actual, Distance, Pump Status */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Radio className="w-4 h-4 text-sky-500" />
                 <span>વાસ્તવિક સેન્સર રીડિંગ્સ અને સ્થિતિ (Live Telemetry)</span>
               </h3>
-              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                પ્રોટોકોલ: 115200 Baud USB
+              <span className="text-[11px] sm:text-xs font-mono text-slate-500 dark:text-slate-400">
+                115200 Baud USB / 9600 Baud BT
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
               {/* 1. Actual Measured Water Level */}
-              <div className="p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50">
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
                   વાસ્તવિક સ્તર (Actual)
                 </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-sky-900 dark:text-sky-100 mt-1 font-sans">
+                <div className="text-xl sm:text-3xl font-extrabold text-sky-900 dark:text-sky-100 mt-1 font-sans">
                   {tank.currentPercent !== null ? `${tank.currentPercent}%` : '--'}
                 </div>
                 <div className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 truncate">
@@ -499,11 +499,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               {/* 2. Selected Target Water Level */}
-              <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
                   લક્ષ્યાંક સ્તર (Target)
                 </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-indigo-900 dark:text-indigo-100 mt-1 font-mono">
+                <div className="text-xl sm:text-3xl font-extrabold text-indigo-900 dark:text-indigo-100 mt-1 font-mono">
                   {selectedTarget}%
                 </div>
                 <div className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1">
@@ -512,11 +512,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               {/* 3. Measured Distance to Water Surface */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
                   માપેલું અંતર (Distance)
                 </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 font-mono">
+                <div className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 font-mono">
                   {tank.currentDistanceCm !== null ? `${tank.currentDistanceCm} cm` : '--'}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
@@ -525,20 +525,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               {/* 4. Physical Pump Status */}
-              <div className={`p-3.5 rounded-2xl border transition-colors ${
+              <div className={`p-3 sm:p-3.5 rounded-2xl border transition-colors ${
                 isPumpRunning
                   ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800'
                   : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60'
               }`}>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
                   પંપ સ્થિતિ (Pump)
                 </span>
-                <div className={`text-xl sm:text-2xl font-extrabold mt-1 flex items-center gap-1.5 ${
+                <div className={`text-base sm:text-2xl font-extrabold mt-1 flex items-center gap-1.5 ${
                   isPumpRunning ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'
                 }`}>
                   {isPumpRunning ? (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                      <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
                       <span>ON (ચાલુ)</span>
                     </>
                   ) : (
@@ -570,21 +570,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Water-Level Control Station: Target Selector & Action Buttons */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="space-y-0.5">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Sliders className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                   <span>વોટર-લેવલ કંટ્રોલ સ્ટેશન (Arduino Uno Direct Control)</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                   લક્ષ્યાંક સ્તર પસંદ કરો (૧૦% થી ૧૦૦%, ૫% ના વધારા સાથે) અને પંપ શરૂ કરો.
                 </p>
               </div>
 
               {/* Big Target Level Indicator */}
               <div className="text-right">
-                <span className="text-3xl font-extrabold text-sky-600 dark:text-sky-400 font-mono tabular-nums">
+                <span className="text-2xl sm:text-3xl font-extrabold text-sky-600 dark:text-sky-400 font-mono tabular-nums">
                   {selectedTarget}%
                 </span>
               </div>
@@ -603,7 +603,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <button
                   onClick={() => handleTargetChange(selectedTarget - 5)}
                   disabled={selectedTarget <= 10}
-                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                  className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors active:scale-95 shrink-0"
                   title="5% ઘટાડો"
                 >
                   -5%
@@ -616,13 +616,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   step="5"
                   value={selectedTarget}
                   onChange={(e) => handleTargetChange(parseInt(e.target.value, 10))}
-                  className="flex-1 h-3 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-600 dark:accent-sky-400"
+                  className="flex-1 h-3 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-600 dark:accent-sky-400 py-1"
                 />
 
                 <button
                   onClick={() => handleTargetChange(selectedTarget + 5)}
                   disabled={selectedTarget >= 100}
-                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                  className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors active:scale-95 shrink-0"
                   title="5% વધારો"
                 >
                   +5%
@@ -630,22 +630,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                <span>૧૦% (લઘુત્તમ)</span>
+                <span>૧૦%</span>
                 <span>૨૫%</span>
                 <span>૫૦%</span>
                 <span>૭૫%</span>
                 <span>૯૦%</span>
-                <span>૧૦૦% (મહત્તમ)</span>
+                <span>૧૦૦%</span>
               </div>
 
               {/* Quick Preset Chips */}
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-slate-500 font-medium">ઝડપી લક્ષ્યાંક:</span>
                 {[25, 50, 75, 80, 85, 90, 95, 100].map((pct) => (
                   <button
                     key={pct}
                     onClick={() => handleTargetChange(pct)}
-                    className={`px-3 py-1 text-xs rounded-lg font-mono font-bold transition-colors cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs rounded-lg font-mono font-bold transition-all cursor-pointer active:scale-95 min-h-[36px] flex items-center justify-center ${
                       selectedTarget === pct
                         ? 'bg-sky-600 text-white shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'

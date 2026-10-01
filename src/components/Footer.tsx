@@ -9,7 +9,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
   return (
-    <footer className="w-full border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-950 mt-12 py-6 text-xs text-slate-500 dark:text-slate-400">
+    <footer className="w-full border-t border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-950 mt-12 py-6 mb-16 md:mb-0 text-xs text-slate-500 dark:text-slate-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2.5 text-center md:text-left">
           <div className="w-6 h-6 rounded-full bg-sky-500/10 flex items-center justify-center shrink-0">
@@ -20,7 +20,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
               શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              વિજ્ઞાન અને ટેકનોલોજી સ્માર્ટ વોટર મેનેજમેન્ટ IoT પ્રોજેક્ટ (Arduino Mega 2560 + ESP8266 NodeMCU + Gemini AI)
+              વિજ્ઞાન અને ટેકનોલોજી સ્માર્ટ વોટર મેનેજમેન્ટ IoT પ્રોજેક્ટ (Arduino Uno R3 + HC-05 Bluetooth + HC-SR04 અલ્ટ્રાસોનિક + Gemini AI)
             </div>
           </div>
         </div>

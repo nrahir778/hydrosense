@@ -121,8 +121,9 @@ export const TankGraphic: React.FC<TankGraphicProps> = ({
 
         {/* Center: The Glass Tank Vessel */}
         <div
-          className="relative flex-1 rounded-b-3xl rounded-t-xl border-3 border-slate-400/80 dark:border-slate-600 bg-slate-100/90 dark:bg-slate-900/80 overflow-hidden shadow-2xl backdrop-blur-md"
-          style={{ height: `${heightPx}px` }}
+          className={`relative flex-1 rounded-b-3xl rounded-t-xl border-3 border-slate-400/80 dark:border-slate-600 bg-slate-100/90 dark:bg-slate-900/80 overflow-hidden shadow-2xl backdrop-blur-md transition-all ${
+            isCompact ? 'h-[280px] sm:h-[320px]' : 'h-[330px] sm:h-[380px] lg:h-[400px]'
+          }`}
         >
           {/* Target/Warning Threshold Line 97% (Critical Cutoff) */}
           <div

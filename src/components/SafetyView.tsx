@@ -72,7 +72,7 @@ export const SafetyView: React.FC<SafetyViewProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl">
-                તત્કાલ હાર્ડવેર કટઓફ: બંને મોટરના હાઇ-વોલ્ટેજ રીલે તાત્કાલિક ખુલ્લા (ઓપન સર્કિટ) કરી દે છે, પંપ સંપૂર્ણ બંધ કરે છે અને Arduino Mega બઝર એલાર્મ શરૂ કરે છે.
+                તત્કાલ હાર્ડવેર કટઓફ: પંપ મોટરના હાઇ-વોલ્ટેજ રીલે (Pin D7) તાત્કાલિક ખુલ્લા (ઓપન સર્કિટ) કરી દે છે, પંપ સંપૂર્ણ બંધ કરે છે અને Arduino Uno બઝર (Pin D8) એલાર્મ શરૂ કરે છે.
               </p>
               {safety.emergencyStop && (
                 <div className="mt-2 text-xs font-bold text-rose-700 dark:text-rose-300">

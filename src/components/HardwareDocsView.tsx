@@ -345,10 +345,10 @@ void beepAlarm(int count) {
             </p>
           </div>
 
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold flex-wrap">
+          <div className="grid grid-cols-2 sm:flex sm:items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold gap-1 sm:gap-0">
             <button
               onClick={() => setActiveSubTab('wiring')}
-              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-2 sm:py-1.5 rounded-lg transition-colors cursor-pointer text-center min-h-[38px] flex items-center justify-center ${
                 activeSubTab === 'wiring'
                   ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -358,7 +358,7 @@ void beepAlarm(int count) {
             </button>
             <button
               onClick={() => setActiveSubTab('firmware')}
-              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-2 sm:py-1.5 rounded-lg transition-colors cursor-pointer text-center min-h-[38px] flex items-center justify-center ${
                 activeSubTab === 'firmware'
                   ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -368,7 +368,7 @@ void beepAlarm(int count) {
             </button>
             <button
               onClick={() => setActiveSubTab('guide')}
-              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-2 sm:py-1.5 rounded-lg transition-colors cursor-pointer text-center min-h-[38px] flex items-center justify-center ${
                 activeSubTab === 'guide'
                   ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -378,7 +378,7 @@ void beepAlarm(int count) {
             </button>
             <button
               onClick={() => setActiveSubTab('protocol')}
-              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-2 sm:py-1.5 rounded-lg transition-colors cursor-pointer text-center min-h-[38px] flex items-center justify-center ${
                 activeSubTab === 'protocol'
                   ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
