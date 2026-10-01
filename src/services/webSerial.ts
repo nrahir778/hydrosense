@@ -15,7 +15,9 @@ export interface ArduinoTelemetry {
   levelPercent: number;        // Actual measured water level (0 - 100%)
   distanceCm: number;          // Actual measured ultrasonic distance in cm
   pumpStatus: 'ON' | 'OFF';    // Physical pump relay state reported by Arduino
-  targetPercent: number;       // Target setpoint reported by Arduino
+  targetPercent: number;       // Target setpoint reported by Arduino (20 - 90%)
+  operatingMode: 'MANUAL' | 'AUTO'; // Operating mode confirmed by Arduino
+  sensorError: string | null;  // Sensor error reported by Arduino or null
   lastReceivedAt: number;      // Timestamp of last parsed packet
   isStale: boolean;            // True if no packet received within 3500ms
   rawLine: string;             // Raw string received from Arduino Uno / HC-05
@@ -715,8 +717,8 @@ class WebSerialService {
 
   /**
    * Parse protocol lines from Arduino Uno or HC-05 Bluetooth:
-   * Format: DISTANCE:4.37,LEVEL:81.8%
-   * or: LEVEL:45,DISTANCE:7.28,PUMP:ON,TARGET:50
+   * Format: LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:75,MODE:AUTO,ERROR:NONE
+   * or: LEVEL:81.8,DISTANCE:4.37,PUMP:OFF,TARGET:75,MODE:MANUAL
    */
   private handleIncomingLine(line: string) {
     this.log(line, 'rx');
@@ -727,7 +729,9 @@ class WebSerialService {
       let level = NaN;
       let distance = NaN;
       let pump: 'ON' | 'OFF' = this.lastTelemetry?.pumpStatus || 'OFF';
-      let target = this.lastTelemetry?.targetPercent || 85;
+      let target = this.lastTelemetry?.targetPercent || 75;
+      let mode: 'MANUAL' | 'AUTO' = this.lastTelemetry?.operatingMode || 'MANUAL';
+      let sensorError: string | null = null;
 
       for (const part of parts) {
         const colonIdx = part.indexOf(':');
@@ -744,22 +748,42 @@ class WebSerialService {
           pump = cleanVal.toUpperCase() === 'ON' ? 'ON' : 'OFF';
         } else if (key === 'TARGET') {
           target = parseInt(cleanVal, 10);
+        } else if (key === 'MODE') {
+          mode = cleanVal.toUpperCase() === 'AUTO' ? 'AUTO' : 'MANUAL';
+        } else if (key === 'ERROR') {
+          sensorError = cleanVal.toUpperCase() === 'NONE' || cleanVal === '' ? null : cleanVal;
         }
       }
+
+      // Enforce strict 20% to 90% target range
+      const clampedTarget = isNaN(target) ? 75 : Math.max(20, Math.min(90, target));
 
       if (!isNaN(level) && !isNaN(distance)) {
         const telemetry: ArduinoTelemetry = {
           levelPercent: Math.max(0, Math.min(100, Math.round(level * 10) / 10)),
           distanceCm: Math.round(distance * 100) / 100,
           pumpStatus: pump,
-          targetPercent: isNaN(target) ? 85 : Math.max(10, Math.min(100, target)),
+          targetPercent: clampedTarget,
+          operatingMode: mode,
+          sensorError,
           lastReceivedAt: Date.now(),
           isStale: false,
           rawLine: line,
         };
         this.notifyTelemetry(telemetry);
       }
-    } else if (line.startsWith('ALERT:') || line.startsWith('ERROR:') || line.startsWith('INFO:')) {
+    } else if (line.startsWith('ERROR:')) {
+      const errMsg = line.slice(6).trim();
+      this.log(`Device Error: ${errMsg}`, 'error');
+      if (this.lastTelemetry) {
+        this.notifyTelemetry({
+          ...this.lastTelemetry,
+          sensorError: errMsg,
+          lastReceivedAt: Date.now(),
+          rawLine: line,
+        });
+      }
+    } else if (line.startsWith('ALERT:') || line.startsWith('INFO:')) {
       this.log(`Device Msg: ${line}`, 'info');
     }
   }
@@ -820,31 +844,58 @@ class WebSerialService {
   }
 
   /**
-   * Set target filling percentage (e.g. TARGET:50)
+   * Set target filling percentage (20% to 90%). Never sends a target above 90%.
    */
   public async setTarget(percent: number): Promise<boolean> {
-    const clamped = Math.max(10, Math.min(100, Math.round(percent / 5) * 5));
+    const clamped = Math.max(20, Math.min(90, Math.round(percent / 5) * 5));
     return await this.sendCommand(`TARGET:${clamped}`);
   }
 
   /**
-   * Start automatic filling (sends TARGET then START)
+   * Manual Mode: Start filling to target.
+   * Sends TARGET:<selected percentage> followed by MODE:MANUAL and START.
+   * Arduino starts the pump and stops it automatically at the target.
    */
   public async startFilling(targetPercent: number): Promise<boolean> {
-    const clamped = Math.max(10, Math.min(100, Math.round(targetPercent / 5) * 5));
-    this.log(`પાણી ભરવાનો આદેશ: ટાર્ગેટ=${clamped}%, START મોકલે છે...`, 'info');
+    const clamped = Math.max(20, Math.min(90, Math.round(targetPercent / 5) * 5));
+    this.log(`મેન્યુઅલ મોડ શરૂ: TARGET:${clamped} -> MODE:MANUAL -> START`, 'info');
     const targetOk = await this.sendCommand(`TARGET:${clamped}`);
     if (!targetOk) return false;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const modeOk = await this.sendCommand('MODE:MANUAL');
+    if (!modeOk) return false;
     await new Promise((resolve) => setTimeout(resolve, 60));
     return await this.sendCommand('START');
   }
 
   /**
-   * Stop pump immediately
+   * Stop pump immediately (STOP command).
    */
   public async stopPump(): Promise<boolean> {
-    this.log('મોટર સ્ટોપ આદેશ (STOP)...', 'info');
+    this.log('મોટર તાત્કાલિક બંધ આદેશ (STOP)...', 'info');
     return await this.sendCommand('STOP');
+  }
+
+  /**
+   * Automatic Mode: Enable Auto Mode.
+   * Sends TARGET:<selected percentage> followed by MODE:AUTO.
+   * Arduino automatically fills when water <= 15% and stops at target.
+   */
+  public async enableAutoMode(targetPercent: number): Promise<boolean> {
+    const clamped = Math.max(20, Math.min(90, Math.round(targetPercent / 5) * 5));
+    this.log(`ઓટો મોડ સક્રિય: TARGET:${clamped} -> MODE:AUTO`, 'info');
+    const targetOk = await this.sendCommand(`TARGET:${clamped}`);
+    if (!targetOk) return false;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    return await this.sendCommand('MODE:AUTO');
+  }
+
+  /**
+   * Switch to Manual Mode (MODE:MANUAL).
+   */
+  public async disableAutoMode(): Promise<boolean> {
+    this.log('ઓટો મોડ બંધ: MODE:MANUAL મોકલે છે...', 'info');
+    return await this.sendCommand('MODE:MANUAL');
   }
 
   /**

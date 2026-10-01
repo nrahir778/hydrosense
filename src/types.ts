@@ -32,9 +32,11 @@ export interface TankState {
   currentPercent: number | null;      // Calculated 0 - 100%
   currentLiters: number | null;       // Calculated liters
   pumpStatus: PumpStatus;
-  targetPercent: number;       // Target level
+  targetPercent: number;       // Target level (20% to 90%)
+  operatingMode: 'MANUAL' | 'AUTO'; // Physical Arduino operating mode
   autoStopAtTarget: boolean;
   sensorHealth: SensorHealth;
+  sensorError?: string | null;
   sensorErrorMessage?: string;
   lastReadingTime: number | null;
   pumpRunDurationSec: number;

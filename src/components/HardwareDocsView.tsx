@@ -37,7 +37,7 @@ export const HardwareDocsView: React.FC = () => {
   શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર
   HydroSense - Smart Single Water Tank Controller Firmware
   Platform: Arduino Uno R3 (Atmega328P)
-  Communication: Direct USB Serial (115200 Baud, Newline-delimited)
+  Communication: Direct USB Serial & HC-05 Bluetooth (115200 Baud / 9600 Baud)
   Sensor: HC-SR04 Ultrasonic Sensor
   Actuator: 5V Relay Module (Active-LOW, Optocoupled)
   ========================================================================================
@@ -54,15 +54,21 @@ export const HardwareDocsView: React.FC = () => {
   - Status LED        -> Digital Pin 13 (Built-in)
   - USB Cable         -> Connects directly to Computer running Chrome/Edge (115200 Baud)
 
-  SAFETY WARNING:
-  NEVER power the water pump motor directly from Arduino 5V or USB!
-  The pump motor MUST be connected to an independent external power supply (e.g. 12V 2A DC
-  or 230V AC mains via certified electrician) through the Relay COM & NO terminals.
-
-  CALIBRATION:
+  CALIBRATION VALUES:
   - Empty Distance (0% Level)  : 13.26 cm
   - Full Distance (100% Level) : 2.40 cm
+  - Span                       : 10.86 cm
+  - Auto-Start Threshold       : <= 15.0%
+  - Target Fill Range          : 20% to 90% (Strict 90% Maximum Permitted Limit)
   - Critical Overflow Cutoff   : >= 97.0%
+
+  COMMANDS:
+  - TARGET:<val>   : Sets target (20% to 90%)
+  - MODE:MANUAL    : Sets operating mode to MANUAL
+  - MODE:AUTO      : Sets operating mode to AUTO (Auto fills at <=15%, stops at target)
+  - START          : Starts the pump
+  - STOP           : Immediately stops the pump & resets mode to MANUAL
+  - STATUS         : Emits live telemetry
 */
 
 // --- PIN DEFINITIONS ---
@@ -77,23 +83,34 @@ const int RELAY_ON  = LOW;
 const int RELAY_OFF = HIGH;
 
 // --- CALIBRATION PARAMETERS ---
-const float EMPTY_DISTANCE_CM = 13.26; // 0%
-const float FULL_DISTANCE_CM  = 2.40;  // 100%
-const float SPAN_CM           = EMPTY_DISTANCE_CM - FULL_DISTANCE_CM; // 10.86 cm
-const float CRITICAL_MAX_PCT  = 97.0;
+const float EMPTY_DISTANCE_CM       = 13.26; // 0%
+const float FULL_DISTANCE_CM        = 2.40;  // 100%
+const float SPAN_CM                 = EMPTY_DISTANCE_CM - FULL_DISTANCE_CM; // 10.86 cm
+const float AUTO_START_THRESH_PCT   = 15.0;  // Auto Mode start threshold
+const int   MIN_PERMITTED_TARGET    = 20;    // 20%
+const int   MAX_PERMITTED_TARGET    = 90;    // 90%
+const float CRITICAL_OVERFLOW_PCT   = 97.0;  // >= 97%
+
+// --- OPERATING MODES ---
+enum OperatingMode {
+  MODE_MANUAL,
+  MODE_AUTO
+};
 
 // --- SYSTEM STATE VARIABLES ---
-int targetPercent = 85;
+int targetPercent = 75;
+OperatingMode currentMode = MODE_MANUAL;
 bool pumpRunning = false;
 float currentDistanceCm = 0.0;
 float currentLevelPercent = 0.0;
 bool sensorValid = false;
+String lastError = "NONE";
+
 unsigned long lastTelemetryTime = 0;
 unsigned long lastSensorSampleTime = 0;
 String serialInputBuffer = "";
 
 void setup() {
-  // CRITICAL SAFETY: Initialize relay pin HIGH before pinMode to prevent boot glitch
   digitalWrite(PIN_RELAY, RELAY_OFF);
   pinMode(PIN_RELAY, OUTPUT);
   digitalWrite(PIN_RELAY, RELAY_OFF);
@@ -111,19 +128,16 @@ void setup() {
   Serial.begin(115200);
   serialInputBuffer.reserve(64);
 
-  // Boot beep
   tone(PIN_BUZZER, 2000, 100);
   delay(120);
   tone(PIN_BUZZER, 2500, 150);
 
-  Serial.println(F("INFO:Arduino Uno HydroSense Controller Initialized (115200 Baud)"));
-  Serial.println(F("INFO:Pump is OFF by default. Waiting for USB commands..."));
+  Serial.println(F("INFO:Arduino Uno HydroSense Controller Initialized"));
 }
 
 void loop() {
   unsigned long now = millis();
 
-  // 1. Process incoming commands from Web Serial
   while (Serial.available() > 0) {
     char c = (char)Serial.read();
     if (c == '\\n' || c == '\\r') {
@@ -138,16 +152,13 @@ void loop() {
     }
   }
 
-  // 2. Read ultrasonic sensor every 150ms
   if (now - lastSensorSampleTime >= 150) {
     lastSensorSampleTime = now;
     readUltrasonicSensor();
   }
 
-  // 3. Autonomous Firmware Safety and Target Cutoff
   enforceAutocutoffAndSafety();
 
-  // 4. Send formatted telemetry output every 1000ms
   if (now - lastTelemetryTime >= 1000) {
     lastTelemetryTime = now;
     sendTelemetry();
@@ -171,6 +182,7 @@ void readUltrasonicSensor() {
 
   if (duration == 0) {
     sensorValid = false;
+    lastError = "SENSOR_FAULT";
     return;
   }
 
@@ -178,10 +190,14 @@ void readUltrasonicSensor() {
 
   if (rawDist < 1.0 || rawDist > 35.0) {
     sensorValid = false;
+    lastError = "OUT_OF_RANGE";
     return;
   }
 
   sensorValid = true;
+  if (lastError == "SENSOR_FAULT" || lastError == "OUT_OF_RANGE") {
+    lastError = "NONE";
+  }
 
   if (currentDistanceCm <= 0.1) {
     currentDistanceCm = rawDist;
@@ -198,32 +214,45 @@ void readUltrasonicSensor() {
 }
 
 void enforceAutocutoffAndSafety() {
-  if (!pumpRunning) return;
-
   if (!sensorValid) {
-    stopPump("SENSOR_FAULT");
-    beepAlarm(3);
-    Serial.println(F("ALERT:Pump stopped due to ultrasonic sensor fault/timeout"));
+    if (pumpRunning) {
+      stopPump("SENSOR_FAULT");
+      beepAlarm(3);
+      Serial.println(F("ALERT:Pump stopped due to ultrasonic sensor fault/timeout"));
+    }
+    if (currentMode == MODE_AUTO) {
+      currentMode = MODE_MANUAL;
+    }
     return;
   }
 
-  if (currentLevelPercent >= CRITICAL_MAX_PCT || currentDistanceCm <= (FULL_DISTANCE_CM - 0.10)) {
-    stopPump("CRITICAL_OVERFLOW");
-    beepAlarm(5);
-    Serial.println(F("ALERT:CRITICAL OVERFLOW CUTOFF ACTIVATED! Tank >= 97%"));
+  if (currentLevelPercent >= CRITICAL_OVERFLOW_PCT || currentDistanceCm <= (FULL_DISTANCE_CM - 0.10)) {
+    if (pumpRunning) {
+      stopPump("CRITICAL_OVERFLOW");
+      beepAlarm(5);
+    }
+    lastError = "CRITICAL_OVERFLOW";
+    currentMode = MODE_MANUAL;
     return;
   }
 
-  if (currentLevelPercent >= (float)targetPercent) {
+  if (currentLevelPercent >= (float)MAX_PERMITTED_TARGET) {
+    if (pumpRunning) {
+      stopPump("MAX_90_REACHED");
+    }
+  }
+
+  if (pumpRunning && currentLevelPercent >= (float)targetPercent) {
     stopPump("TARGET_REACHED");
     tone(PIN_BUZZER, 1800, 100);
     delay(120);
     tone(PIN_BUZZER, 2400, 200);
-    Serial.print(F("INFO:Target reached ("));
-    Serial.print(currentLevelPercent, 1);
-    Serial.print(F("% >= "));
-    Serial.print(targetPercent);
-    Serial.println(F("%). Pump shut off automatically."));
+  }
+
+  if (currentMode == MODE_AUTO && !pumpRunning && sensorValid) {
+    if (currentLevelPercent <= AUTO_START_THRESH_PCT && currentLevelPercent < (float)targetPercent) {
+      startPump();
+    }
   }
 }
 
@@ -235,14 +264,24 @@ void parseCommand(String cmd) {
     int colonIdx = cmd.indexOf(':');
     if (colonIdx > 0) {
       int newTarget = cmd.substring(colonIdx + 1).toInt();
-      if (newTarget >= 10 && newTarget <= 100) {
-        targetPercent = newTarget;
-        Serial.print(F("INFO:Target level updated to "));
-        Serial.print(targetPercent);
-        Serial.println(F("%"));
-      } else {
-        Serial.println(F("ERROR:Target out of range (10-100)"));
-      }
+      if (newTarget < MIN_PERMITTED_TARGET) newTarget = MIN_PERMITTED_TARGET;
+      if (newTarget > MAX_PERMITTED_TARGET) newTarget = MAX_PERMITTED_TARGET;
+      targetPercent = newTarget;
+      Serial.print(F("INFO:Target set to "));
+      Serial.print(targetPercent);
+      Serial.println(F("%"));
+    }
+  } else if (cmd == "MODE:MANUAL") {
+    currentMode = MODE_MANUAL;
+    Serial.println(F("INFO:Mode set to MANUAL"));
+  } else if (cmd == "MODE:AUTO") {
+    currentMode = MODE_AUTO;
+    lastError = "NONE";
+    Serial.print(F("INFO:Mode set to AUTO. Target: "));
+    Serial.print(targetPercent);
+    Serial.println(F("%"));
+    if (sensorValid && currentLevelPercent <= AUTO_START_THRESH_PCT && currentLevelPercent < (float)targetPercent) {
+      startPump();
     }
   } else if (cmd == "START") {
     if (!sensorValid) {
@@ -255,14 +294,18 @@ void parseCommand(String cmd) {
       beepAlarm(1);
       return;
     }
-    if (currentLevelPercent >= CRITICAL_MAX_PCT) {
-      Serial.println(F("ERROR:Tank is critically full (>= 97%)! Start blocked."));
+    if (currentLevelPercent >= (float)MAX_PERMITTED_TARGET) {
+      Serial.println(F("ERROR:Tank is at maximum permitted fill level (>= 90%)! Start blocked."));
       beepAlarm(2);
       return;
     }
     startPump();
   } else if (cmd == "STOP") {
     stopPump("USER_COMMAND");
+    if (currentMode == MODE_AUTO) {
+      currentMode = MODE_MANUAL;
+      Serial.println(F("INFO:Auto Mode paused due to manual STOP."));
+    }
   } else if (cmd == "STATUS") {
     sendTelemetry();
   } else {
@@ -275,9 +318,6 @@ void startPump() {
   digitalWrite(PIN_RELAY, RELAY_ON);
   pumpRunning = true;
   tone(PIN_BUZZER, 2200, 150);
-  Serial.print(F("INFO:Pump STARTED. Filling to target: "));
-  Serial.print(targetPercent);
-  Serial.println(F("%"));
   sendTelemetry();
 }
 
@@ -285,8 +325,6 @@ void stopPump(const char* reason) {
   digitalWrite(PIN_RELAY, RELAY_OFF);
   pumpRunning = false;
   tone(PIN_BUZZER, 1200, 100);
-  Serial.print(F("INFO:Pump STOPPED. Reason: "));
-  Serial.println(reason);
   sendTelemetry();
 }
 
@@ -309,7 +347,13 @@ void sendTelemetry() {
   Serial.print(pumpRunning ? F("ON") : F("OFF"));
 
   Serial.print(F(",TARGET:"));
-  Serial.println(targetPercent);
+  Serial.print(targetPercent);
+
+  Serial.print(F(",MODE:"));
+  Serial.print(currentMode == MODE_AUTO ? F("AUTO") : F("MANUAL"));
+
+  Serial.print(F(",ERROR:"));
+  Serial.println(lastError);
 }
 
 void beepAlarm(int count) {

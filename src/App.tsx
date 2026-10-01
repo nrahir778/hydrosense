@@ -57,6 +57,8 @@ export default function App() {
     stopUsbPump,
     emergencyStopUsb,
     setUsbTarget,
+    enableUsbAutoMode,
+    disableUsbAutoMode,
   } = useHydroSense();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -158,6 +160,8 @@ export default function App() {
             onStopPump={stopUsbPump}
             onEmergencyStop={emergencyStopUsb}
             onSetUsbTarget={setUsbTarget}
+            onEnableAutoMode={enableUsbAutoMode}
+            onDisableAutoMode={disableUsbAutoMode}
           />
         )}
 
@@ -183,6 +187,8 @@ export default function App() {
             onStopPump={stopUsbPump}
             onEmergencyStop={emergencyStopUsb}
             onSetUsbTarget={setUsbTarget}
+            onEnableAutoMode={enableUsbAutoMode}
+            onDisableAutoMode={disableUsbAutoMode}
           />
         )}
 

@@ -83,9 +83,11 @@ const initialTank: TankState = {
   currentPercent: null,         // 0 - 100% (null when no hardware packet received)
   currentLiters: null,
   pumpStatus: 'LOCKED',         // Monitoring separated from pump control; locked until hardware verification
-  targetPercent: 85,
+  targetPercent: 75,
+  operatingMode: 'MANUAL',
   autoStopAtTarget: true,
   sensorHealth: 'WAITING_CONNECTION',
+  sensorError: null,
   lastReadingTime: null,
   pumpRunDurationSec: 0,
   hasRealTelemetry: false,

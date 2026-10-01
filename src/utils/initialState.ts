@@ -27,9 +27,11 @@ export const DEFAULT_TANK: TankState = {
   currentPercent: null,         // Clean null state - no fake data
   currentLiters: null,
   pumpStatus: 'LOCKED',         // Monitoring separated from pump control
-  targetPercent: 85,
+  targetPercent: 75,
+  operatingMode: 'MANUAL',
   autoStopAtTarget: true,
   sensorHealth: 'WAITING_CONNECTION',
+  sensorError: null,
   lastReadingTime: null,
   pumpRunDurationSec: 0,
   hasRealTelemetry: false,

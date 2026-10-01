@@ -19,6 +19,8 @@ import {
   RotateCw,
   Terminal,
   Smartphone,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 
 interface ManualControlViewProps {
@@ -48,6 +50,8 @@ interface ManualControlViewProps {
   onStopPump?: () => Promise<boolean>;
   onEmergencyStop?: () => Promise<boolean>;
   onSetUsbTarget?: (pct: number) => Promise<boolean>;
+  onEnableAutoMode?: (targetPercent: number) => Promise<boolean>;
+  onDisableAutoMode?: () => Promise<boolean>;
 }
 
 export const ManualControlView: React.FC<ManualControlViewProps> = ({
@@ -70,21 +74,65 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
   onStopPump,
   onEmergencyStop,
   onSetUsbTarget,
+  onEnableAutoMode,
+  onDisableAutoMode,
 }) => {
   const { tank, calibration, hardwareStatus } = state;
-  const [targetPercent, setTargetPercent] = useState<number>(() => tank.targetPercent || 85);
+  // Target percentage strictly 20% to 90%
+  const [targetPercent, setTargetPercent] = useState<number>(() => {
+    const initial = tank.targetPercent || 75;
+    return Math.max(20, Math.min(90, Math.round(initial / 5) * 5));
+  });
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  // Sync targetPercent from Arduino telemetry
+  React.useEffect(() => {
+    if (usbTelemetry?.targetPercent && usbTelemetry.targetPercent >= 20 && usbTelemetry.targetPercent <= 90) {
+      setTargetPercent(usbTelemetry.targetPercent);
+    }
+  }, [usbTelemetry?.targetPercent]);
 
   const isUsbConnected = usbStatus === 'CONNECTED';
   const hasValidSensorData = isUsbConnected && tank.hasRealTelemetry && tank.currentPercent !== null;
   const isPumpRunning = tank.pumpStatus === 'RUNNING';
   const isStale = Boolean(usbTelemetry?.isStale);
 
+  const operatingMode = usbTelemetry?.operatingMode || tank.operatingMode || 'MANUAL';
+  const isAutoModeActive = operatingMode === 'AUTO';
+
   const handleTargetChange = (val: number) => {
-    const clamped = Math.max(10, Math.min(100, Math.round(val / 5) * 5));
+    // Strictly clamped 20% to 90% - never above 90%
+    const clamped = Math.max(20, Math.min(90, Math.round(val / 5) * 5));
     setTargetPercent(clamped);
     if (onSetUsbTarget && isUsbConnected) {
       onSetUsbTarget(clamped);
+    }
+  };
+
+  const handleToggleAutoMode = async () => {
+    setFeedbackMsg(null);
+    if (!isUsbConnected) {
+      setFeedbackMsg('કંટ્રોલર જોડાયેલ નથી. કૃપા કરીને પહેલા કનેક્ટ કરો.');
+      return;
+    }
+    if (!hasValidSensorData) {
+      setFeedbackMsg('માન્ય સેન્સર રીડિંગ મળ્યું નથી. સેન્સર ફીડબેક વગર ઓટો મોડ સક્રિય કરી શકાતો નથી.');
+      return;
+    }
+    if (isAutoModeActive) {
+      if (onDisableAutoMode) {
+        const ok = await onDisableAutoMode();
+        if (ok) {
+          setFeedbackMsg('ઓટો મોડ બંધ: સિસ્ટમ MANUAL મોડમાં છે (MODE:MANUAL).');
+        }
+      }
+    } else {
+      if (onEnableAutoMode) {
+        const ok = await onEnableAutoMode(targetPercent);
+        if (ok) {
+          setFeedbackMsg(`ઓટો મોડ સક્રિય: TARGET:${targetPercent} & MODE:AUTO મોકલ્યો.`);
+        }
+      }
     }
   };
 
@@ -389,36 +437,88 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
               </div>
             </div>
 
-            {/* Communication Timestamp */}
+            {/* Operating Mode & Communication Timestamp */}
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
               <div className="flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="text-slate-500">છેલ્લો ટેલિમેટ્રી પ્રતિસાદ:</span>
+                <span className="text-slate-500">ટેલિમેટ્રી પ્રતિસાદ:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
                   {formatLastUpdate(tank.lastReadingTime)}
                 </span>
               </div>
-              <span className={`font-bold font-mono ${tank.sensorHealth === 'OK' ? 'text-emerald-600' : 'text-amber-500'}`}>
-                સેન્સર: {tank.sensorHealth === 'OK' ? 'OK' : tank.sensorHealth}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className={`px-2 py-0.5 rounded-md font-bold font-mono text-[11px] ${
+                  isAutoModeActive ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}>
+                  MODE: {operatingMode}
+                </span>
+                <span className={`font-bold font-mono ${tank.sensorHealth === 'OK' ? 'text-emerald-600' : 'text-amber-500'}`}>
+                  સેન્સર: {tank.sensorHealth === 'OK' ? 'OK' : tank.sensorHealth}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Water-Level Control: Target Selector (10% to 100%, 5% increments) */}
+          {/* Automatic Mode Toggle Bar */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="font-bold text-sm text-slate-900 dark:text-white">
+                  ઓટોમેટિક મોડ (AUTO MODE TOGGLE)
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                  isAutoModeActive ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                  {isAutoModeActive ? 'ACTIVE' : 'OFF'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                સક્રિય કરતાં: TARGET:{targetPercent} & MODE:AUTO મોકલશે. પાણી &lt;= 15% એ પંપ શરૂ થઈ {targetPercent}% એ બંધ થશે.
+              </p>
+            </div>
+
+            <button
+              onClick={handleToggleAutoMode}
+              disabled={!isUsbConnected}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                !isUsbConnected
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : isAutoModeActive
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+              }`}
+            >
+              {isAutoModeActive ? (
+                <>
+                  <ToggleRight className="w-5 h-5 text-white" />
+                  <span>Auto Mode ચાલુ</span>
+                </>
+              ) : (
+                <>
+                  <ToggleLeft className="w-5 h-5 text-slate-400" />
+                  <span>Auto Mode બંધ</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Water-Level Control: Target Selector (20% to 90%, 5% increments) */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  લક્ષ્યાંક પાણી સ્તર સિલેક્ટર (Target Water Level: 10% - 100%)
+                  લક્ષ્યાંક પાણી સ્તર સિલેક્ટર (Water Target Slider: 20% - 90%)
                 </h3>
                 <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-                  ૫% ના વધારા સાથે એડજસ્ટ કરો. પંપ આ લેવલ પર પહોંચતા આપમેળે બંધ થઈ જશે.
+                  પસંદ કરેલ લક્ષ્યાંક તે સાયકલ માટેની મહત્તમ મર્યાદા છે. સિસ્ટમ ક્યારેય ૯૦% થી વધુ ટાર્ગેટ મોકલતી નથી.
                 </p>
               </div>
               <div className="text-right">
                 <span className="text-2xl sm:text-3xl font-extrabold text-sky-600 dark:text-sky-400 font-mono tabular-nums">
                   {targetPercent}%
                 </span>
+                <div className="text-[10px] text-slate-400 font-medium">Max Limit: 90%</div>
               </div>
             </div>
 
@@ -427,17 +527,17 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => handleTargetChange(targetPercent - 5)}
-                  disabled={targetPercent <= 10}
+                  disabled={targetPercent <= 20}
                   className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors active:scale-95 shrink-0"
-                  title="5% ઘટાડો"
+                  title="5% ઘટાડો (ન્યૂનતમ 20%)"
                 >
                   -5%
                 </button>
 
                 <input
                   type="range"
-                  min="10"
-                  max="100"
+                  min="20"
+                  max="90"
                   step="5"
                   value={targetPercent}
                   onChange={(e) => handleTargetChange(parseInt(e.target.value, 10))}
@@ -446,27 +546,27 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
 
                 <button
                   onClick={() => handleTargetChange(targetPercent + 5)}
-                  disabled={targetPercent >= 100}
+                  disabled={targetPercent >= 90}
                   className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors active:scale-95 shrink-0"
-                  title="5% વધારો"
+                  title="5% વધારો (મહત્તમ 90%)"
                 >
                   +5%
                 </button>
               </div>
 
               <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                <span>૧૦% (લઘુત્તમ)</span>
-                <span>૨૫%</span>
+                <span>૨૦% (લઘુત્તમ)</span>
+                <span>૩૫%</span>
                 <span>૫૦%</span>
-                <span>૭૫%</span>
-                <span>૮૫%</span>
-                <span>૧૦૦% (મહત્તમ)</span>
+                <span>૬૫%</span>
+                <span>૮૦%</span>
+                <span>૯૦% (મહત્તમ હાર્ડ લિમિટ)</span>
               </div>
 
               {/* Preset Buttons */}
               <div className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-slate-500 font-medium">ઝડપી સેટિંગ:</span>
-                {[25, 50, 75, 80, 85, 90, 95, 100].map((pct) => (
+                {[20, 30, 40, 50, 60, 70, 75, 80, 85, 90].map((pct) => (
                   <button
                     key={pct}
                     onClick={() => handleTargetChange(pct)}
@@ -482,10 +582,10 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
               </div>
             </div>
 
-            {/* Action Buttons: Start Filling, Stop Pump, Emergency Stop */}
+            {/* Action Buttons: START PUMP, STOP PUMP, EMERGENCY STOP */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* 1. Start Filling Button */}
+                {/* 1. START PUMP Button */}
                 <button
                   onClick={handleStartFilling}
                   disabled={!isUsbConnected || !hasValidSensorData || isPumpRunning || (tank.currentPercent !== null && tank.currentPercent >= targetPercent)}
@@ -501,14 +601,14 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                       ? 'સેન્સર રીડિંગ ઉપલબ્ધ નથી'
                       : isPumpRunning
                       ? 'પંપ પહેલેથી ચાલુ છે'
-                      : `પાણી ભરો (TARGET:${targetPercent} & START)`
+                      : `START PUMP (TARGET:${targetPercent} -> MODE:MANUAL -> START)`
                   }
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  <span>Start Filling (શરૂ કરો)</span>
+                  <span>START PUMP (શરૂ કરો)</span>
                 </button>
 
-                {/* 2. Stop Pump Button */}
+                {/* 2. STOP PUMP Button */}
                 <button
                   onClick={handleStopPump}
                   disabled={!isUsbConnected || !isPumpRunning}
@@ -517,10 +617,10 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-700'
                       : 'bg-amber-600 hover:bg-amber-700 active:scale-95 text-white cursor-pointer shadow-amber-600/20'
                   }`}
-                  title="મોટર પંપ તાત્કાલિક બંધ કરો (STOP)"
+                  title="મોટર પંપ તાત્કાલિક બંધ કરો (STOP આદેશ મોકલે છે)"
                 >
                   <Square className="w-4 h-4 fill-current" />
-                  <span>Stop Pump (બંધ કરો)</span>
+                  <span>STOP PUMP (બંધ કરો)</span>
                 </button>
 
                 {/* 3. Emergency Stop Button */}
@@ -545,7 +645,7 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                   <Lock className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>
                     {!isUsbConnected
-                      ? 'પંપ શરૂ કરવા માટે પહેલા "Connect USB" પર ક્લિક કરીને Arduino Uno જોડો.'
+                      ? 'પંપ શરૂ કરવા માટે પહેલા "Connect USB" અથવા "Connect Bluetooth" પર ક્લિક કરીને Arduino Uno જોડો.'
                       : 'સુરક્ષા નિયમ: માન્ય અલ્ટ્રાસોનિક સેન્સર રીડિંગ્સ મળ્યા પછી જ પંપ શરૂ કરવાની મંજૂરી મળશે.'}
                   </span>
                 </div>
@@ -557,24 +657,26 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
           <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Terminal className="w-4 h-4 text-indigo-500" />
-              <span>Arduino Uno સીરીયલ પ્રોટોકોલ વિગતો (115200 Baud)</span>
+              <span>Arduino Uno સીરીયલ પ્રોટોકોલ વિગતો (115200 Baud / 9600 Baud)</span>
             </h4>
 
             <div className="text-xs text-slate-600 dark:text-slate-400 space-y-2">
               <p>
-                વેબ એપ્લિકેશન ન્યૂલાઇન-ડિલિમિટેડ આદેશો મોકલે છે:
+                વેબ એપ્લિકેશન ન્યૂલાઇન-ડિલિમિટેડ (\n) આદેશો મોકલે છે:
               </p>
               <div className="p-3 rounded-xl bg-slate-950 font-mono text-emerald-400 text-xs space-y-1">
-                <div>TARGET:50  {'->'} લક્ષ્યાંક ૫૦% સેટ કરે છે</div>
-                <div>START      {'->'} પંપ ઓટો-ફિલિંગ શરૂ કરે છે</div>
-                <div>STOP       {'->'} પંપ તાત્કાલિક બંધ કરે છે</div>
-                <div>STATUS     {'->'} તાત્કાલિક ટેલિમેટ્રી રીડિંગ માંગે છે</div>
+                <div>TARGET:75    {'->'} લક્ષ્યાંક ૭૫% સેટ કરે છે (20% થી 90% ની વચ્ચે)</div>
+                <div>MODE:MANUAL  {'->'} ઓપરેટિંગ મોડ MANUAL સેટ કરે છે</div>
+                <div>MODE:AUTO    {'->'} ઓટો મોડ સક્રિય કરે છે (પાણી &lt;=15% એ સ્ટાર્ટ, ટાર્ગેટ પર સ્ટોપ)</div>
+                <div>START        {'->'} પંપ ઓટો-ફિલિંગ શરૂ કરે છે</div>
+                <div>STOP         {'->'} પંપ તાત્કાલિક બંધ કરે છે અને ઓટો મોડ રીસેટ કરે છે</div>
+                <div>STATUS       {'->'} તાત્કાલિક ટેલિમેટ્રી રીડિંગ માંગે છે</div>
               </div>
               <p className="pt-1">
-                Arduino Uno દર ૧ સેકન્ડે ટેલિમેટ્રી પ્રસારિત કરે છે:
+                Arduino Uno દર ૧ સેકન્ડે પુષ્ટિ ટેલિમેટ્રી પ્રસારિત કરે છે:
               </p>
               <div className="p-3 rounded-xl bg-slate-950 font-mono text-sky-300 text-xs">
-                LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:50
+                LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:75,MODE:MANUAL,ERROR:NONE
               </div>
             </div>
           </div>

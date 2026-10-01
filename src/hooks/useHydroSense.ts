@@ -196,10 +196,45 @@ export function useHydroSense() {
     }
   }, []);
 
-  // Set Target Level via USB (TARGET:xx)
+  // Set Target Level via USB (TARGET:xx, 20% to 90%)
   const setUsbTarget = useCallback(async (pct: number): Promise<boolean> => {
     if (webSerial.getStatus() !== 'CONNECTED') return false;
     return await webSerial.setTarget(pct);
+  }, []);
+
+  // Enable Auto Mode via USB/Bluetooth (TARGET:xx then MODE:AUTO)
+  const enableUsbAutoMode = useCallback(async (targetPercent: number): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const ok = await webSerial.enableAutoMode(targetPercent);
+      if (!ok) {
+        setActionError('ઓટો મોડ કમાન્ડ મોકલવામાં નિષ્ફળતા. કનેક્શન તપાસો.');
+      }
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ઓટો મોડ સક્રિય કરવામાં ભૂલ';
+      setActionError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  // Disable Auto Mode via USB/Bluetooth (MODE:MANUAL)
+  const disableUsbAutoMode = useCallback(async (): Promise<boolean> => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      const ok = await webSerial.disableAutoMode();
+      return ok;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ઓટો મોડ બંધ કરવામાં ભૂલ';
+      setActionError(msg);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
   }, []);
 
   // WebSerial Subscriptions
@@ -249,13 +284,15 @@ export function useHydroSense() {
       setUsbTelemetry(telemetry);
       setState((prev) => {
         const isStale = telemetry.isStale;
-        const validSensor = !isStale && telemetry.distanceCm >= 0.5 && telemetry.distanceCm <= 400.0;
+        const validSensor = !isStale && telemetry.distanceCm >= 0.5 && telemetry.distanceCm <= 400.0 && !telemetry.sensorError;
         const hwStatus = isStale
           ? 'OFFLINE'
+          : telemetry.sensorError
+          ? 'SENSOR_ERROR'
           : validSensor
           ? 'ONLINE'
           : 'SENSOR_ERROR';
-        const sensorHealth = validSensor ? 'OK' : 'OUT_OF_RANGE';
+        const sensorHealth = telemetry.sensorError ? 'OUT_OF_RANGE' : validSensor ? 'OK' : 'OUT_OF_RANGE';
         const currentLiters = validSensor
           ? Math.round((telemetry.levelPercent / 100) * prev.tank.capacityLiters)
           : null;
@@ -267,7 +304,9 @@ export function useHydroSense() {
           currentLiters,
           pumpStatus: telemetry.pumpStatus === 'ON' ? 'RUNNING' : 'OFF',
           targetPercent: telemetry.targetPercent,
+          operatingMode: telemetry.operatingMode,
           sensorHealth,
+          sensorError: telemetry.sensorError,
           hasRealTelemetry: validSensor,
           lastReadingTime: telemetry.lastReceivedAt,
           hardwareStatus: hwStatus,
@@ -275,6 +314,7 @@ export function useHydroSense() {
 
         return {
           ...prev,
+          mode: telemetry.operatingMode,
           hardwareStatus: hwStatus,
           connectionState: isStale ? 'DISCONNECTED' : 'CONNECTED',
           tank: updatedTank,
@@ -671,5 +711,7 @@ export function useHydroSense() {
     stopUsbPump,
     emergencyStopUsb,
     setUsbTarget,
+    enableUsbAutoMode,
+    disableUsbAutoMode,
   };
 }

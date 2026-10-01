@@ -25,6 +25,10 @@ import {
   Smartphone,
   Eye,
   EyeOff,
+  Zap,
+  ToggleLeft,
+  ToggleRight,
+  Cpu,
 } from 'lucide-react';
 import {
   requestScreenWakeLock,
@@ -56,6 +60,8 @@ interface DashboardViewProps {
   onStopPump?: () => Promise<boolean>;
   onEmergencyStop?: () => Promise<boolean>;
   onSetUsbTarget?: (pct: number) => Promise<boolean>;
+  onEnableAutoMode?: (targetPercent: number) => Promise<boolean>;
+  onDisableAutoMode?: () => Promise<boolean>;
   isAndroid?: boolean;
   onOpenAndroidGuide?: () => void;
 }
@@ -81,11 +87,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onStopPump,
   onEmergencyStop,
   onSetUsbTarget,
+  onEnableAutoMode,
+  onDisableAutoMode,
 }) => {
   const { tank, hardwareStatus, calibration } = state;
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<number>(() => tank.targetPercent || 85);
+  // Target filling percentage: strictly 20% to 90% (never above 90%)
+  const [selectedTarget, setSelectedTarget] = useState<number>(() => {
+    const initial = tank.targetPercent || 75;
+    return Math.max(20, Math.min(90, Math.round(initial / 5) * 5));
+  });
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
+  // Sync selectedTarget if Arduino reports an updated target within 20% to 90%
+  React.useEffect(() => {
+    if (usbTelemetry?.targetPercent && usbTelemetry.targetPercent >= 20 && usbTelemetry.targetPercent <= 90) {
+      setSelectedTarget(usbTelemetry.targetPercent);
+    }
+  }, [usbTelemetry?.targetPercent]);
 
   // Calibration Form State
   const [emptyDist, setEmptyDist] = useState(calibration.emptyDistanceCm.toString());
@@ -98,6 +117,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const hasValidSensorData = isUsbConnected && tank.hasRealTelemetry && tank.currentPercent !== null;
   const isPumpRunning = tank.pumpStatus === 'RUNNING';
   const isStale = Boolean(usbTelemetry?.isStale);
+
+  // Operating Mode directly confirmed by Arduino telemetry ('AUTO' | 'MANUAL')
+  const operatingMode = usbTelemetry?.operatingMode || tank.operatingMode || 'MANUAL';
+  const isAutoModeActive = operatingMode === 'AUTO';
 
   // Android Screen Wake Lock state (keeps screen awake while filling or observing)
   const [keepAwake, setKeepAwake] = useState<boolean>(false);
@@ -126,10 +149,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const handleTargetChange = (val: number) => {
     triggerHaptic('tap');
-    const clamped = Math.max(10, Math.min(100, Math.round(val / 5) * 5));
+    // Enforce strict 20% to 90% range - never send above 90%
+    const clamped = Math.max(20, Math.min(90, Math.round(val / 5) * 5));
     setSelectedTarget(clamped);
     if (onSetUsbTarget && isUsbConnected) {
       onSetUsbTarget(clamped);
+    }
+  };
+
+  const handleToggleAutoMode = async () => {
+    triggerHaptic('tap');
+    setActionFeedback(null);
+    if (!isUsbConnected) {
+      setActionFeedback('કંટ્રોલર (USB/Bluetooth) જોડાયેલ નથી. ઓટો મોડ સક્રિય કરવા માટે પહેલા કનેક્ટ કરો.');
+      return;
+    }
+    if (!hasValidSensorData) {
+      setActionFeedback('માન્ય સેન્સર રીડિંગ મળ્યું નથી. સેન્સર ફીડબેક વગર ઓટો મોડ સક્રિય કરી શકાતો નથી.');
+      return;
+    }
+    if (isAutoModeActive) {
+      if (onDisableAutoMode) {
+        const ok = await onDisableAutoMode();
+        if (ok) {
+          setActionFeedback('ઓટો મોડ બંધ: સિસ્ટમ હવે MANUAL મોડમાં છે (MODE:MANUAL મોકલ્યો).');
+        }
+      }
+    } else {
+      if (onEnableAutoMode) {
+        const ok = await onEnableAutoMode(selectedTarget);
+        if (ok) {
+          setActionFeedback(`ઓટો મોડ સક્રિય: TARGET:${selectedTarget} & MODE:AUTO મોકલ્યો. પાણી <= 15% થતાં પંપ આપમેળે શરૂ થશે અને ${selectedTarget}% પર બંધ થશે.`);
+        }
+      }
     }
   };
 
@@ -137,7 +189,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     triggerHaptic('start');
     setActionFeedback(null);
     if (!isUsbConnected) {
-      setActionFeedback('USB જોડાયેલ નથી. કૃપા કરીને પહેલા "Connect USB" પર ક્લિક કરો.');
+      setActionFeedback('કંટ્રોલર (USB/Bluetooth) જોડાયેલ નથી. કૃપા કરીને પહેલા "Connect USB" પર ક્લિક કરો.');
       return;
     }
     if (!hasValidSensorData) {
@@ -148,10 +200,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setActionFeedback(`પાણીનું સ્તર (${tank.currentPercent}%) પહેલેથી જ લક્ષ્યાંક (${selectedTarget}%) પર કે તેથી વધુ છે.`);
       return;
     }
+    if (selectedTarget > 90) {
+      setActionFeedback('સુરક્ષા મર્યાદા: લક્ષ્યાંક ૯૦% થી વધુ સેટ કરી શકાતો નથી.');
+      return;
+    }
     if (onStartFilling) {
       const ok = await onStartFilling(selectedTarget);
       if (ok) {
-        setActionFeedback(`પાણી ભરવાનું શરૂ કર્યું: ટાર્ગેટ ${selectedTarget}% પર પહોંચતા પંપ આપમેળે બંધ થશે.`);
+        setActionFeedback(`મેન્યુઅલ મોડ: TARGET:${selectedTarget} -> MODE:MANUAL -> START મોકલ્યો. Arduino Uno પંપ શરૂ કરી ${selectedTarget}% પર આપમેળે બંધ કરશે.`);
       }
     }
   };
@@ -161,7 +217,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActionFeedback(null);
     if (onStopPump) {
       await onStopPump();
-      setActionFeedback('પંપ તાત્કાલિક બંધ કરવામાં આવ્યો છે.');
+      setActionFeedback('પંપ તાત્કાલિક બંધ કરવામાં આવ્યો છે (STOP આદેશ મોકલ્યો).');
     }
   };
 
@@ -472,73 +528,81 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Right Column: Water-Level Control & Live Metrics (lg:col-span-7) */}
         <div className="lg:col-span-7 space-y-5 sm:space-y-6">
-          {/* Key Measurement Indicators: Target vs Actual, Distance, Pump Status */}
+          {/* Key Measurement Indicators: Live Telemetry & System Diagnostics */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Radio className="w-4 h-4 text-sky-500" />
-                <span>વાસ્તવિક સેન્સર રીડિંગ્સ અને સ્થિતિ (Live Telemetry)</span>
+                <span>વાસ્તવિક લાઈવ ડેશબોર્ડ (Live Arduino Telemetry)</span>
               </h3>
-              <span className="text-[11px] sm:text-xs font-mono text-slate-500 dark:text-slate-400">
-                115200 Baud USB / 9600 Baud BT
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] sm:text-xs font-mono text-slate-500 dark:text-slate-400">
+                  {isUsbConnected
+                    ? serialMode === 'BLUETOOTH'
+                      ? 'HC-05 BT (9600 Baud)'
+                      : 'USB Serial (115200 Baud)'
+                    : 'ઓફલાઇન'}
+                </span>
+                <span className={`w-2 h-2 rounded-full ${isUsbConnected ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+            {/* 6 Key Telemetry Cards: Level, Distance, Target, Pump ON/OFF, Mode, Connection & Error */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {/* 1. Actual Measured Water Level */}
               <div className="p-3 sm:p-3.5 rounded-2xl bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50">
                 <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
-                  વાસ્તવિક સ્તર (Actual)
+                  ૧. પાણીનું સ્તર (Water Level)
                 </span>
                 <div className="text-xl sm:text-3xl font-extrabold text-sky-900 dark:text-sky-100 mt-1 font-sans">
                   {tank.currentPercent !== null ? `${tank.currentPercent}%` : '--'}
                 </div>
                 <div className="text-[10px] text-sky-700 dark:text-sky-300 mt-1 truncate">
-                  {tank.currentLiters !== null ? `${tank.currentLiters} L` : 'ઓફલાઇન'}
+                  {tank.currentLiters !== null ? `${tank.currentLiters} L / ૧૦૦૦ L` : 'વાસ્તવિક ડેટા પ્રતિક્ષામાં'}
                 </div>
               </div>
 
-              {/* 2. Selected Target Water Level */}
-              <div className="p-3 sm:p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
-                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
-                  લક્ષ્યાંક સ્તર (Target)
-                </span>
-                <div className="text-xl sm:text-3xl font-extrabold text-indigo-900 dark:text-indigo-100 mt-1 font-mono">
-                  {selectedTarget}%
-                </div>
-                <div className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1">
-                  ઓટો-કટઓફ સેટ
-                </div>
-              </div>
-
-              {/* 3. Measured Distance to Water Surface */}
+              {/* 2. Measured Distance to Water Surface in cm */}
               <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
                 <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
-                  માપેલું અંતર (Distance)
+                  ૨. માપેલું અંતર (Distance)
                 </span>
                 <div className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 font-mono">
                   {tank.currentDistanceCm !== null ? `${tank.currentDistanceCm} cm` : '--'}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                  HC-SR04 ઇકો
+                  HC-SR04 અલ્ટ્રાસોનિક ઇકો
                 </div>
               </div>
 
-              {/* 4. Physical Pump Status */}
+              {/* 3. Selected Target Water Level */}
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+                  ૩. લક્ષ્યાંક સ્તર (Selected Target)
+                </span>
+                <div className="text-xl sm:text-3xl font-extrabold text-indigo-900 dark:text-indigo-100 mt-1 font-mono">
+                  {selectedTarget}%
+                </div>
+                <div className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1 font-medium">
+                  ચક્ર મહત્તમ મર્યાદા (Max 90%)
+                </div>
+              </div>
+
+              {/* 4. Physical Pump Status (Verified strictly against Arduino responses) */}
               <div className={`p-3 sm:p-3.5 rounded-2xl border transition-colors ${
                 isPumpRunning
                   ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800'
                   : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60'
               }`}>
                 <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
-                  પંપ સ્થિતિ (Pump)
+                  ૪. પંપ સ્થિતિ (Pump Status)
                 </span>
                 <div className={`text-base sm:text-2xl font-extrabold mt-1 flex items-center gap-1.5 ${
                   isPumpRunning ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'
                 }`}>
                   {isPumpRunning ? (
                     <>
-                      <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
                       <span>ON (ચાલુ)</span>
                     </>
                   ) : (
@@ -546,73 +610,200 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   )}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                  Relay Pin D7
+                  {isPumpRunning ? 'Arduino પુષ્ટિ: રિલે Pin D7 સક્રિય' : 'Arduino પુષ્ટિ: પંપ બંધ છે'}
+                </div>
+              </div>
+
+              {/* 5. Operating Mode (Direct from Arduino: AUTO or MANUAL) */}
+              <div className={`p-3 sm:p-3.5 rounded-2xl border transition-colors ${
+                isAutoModeActive
+                  ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-300 dark:border-blue-800'
+                  : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60'
+              }`}>
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+                  ૫. ઓપરેટિંગ મોડ (Operating Mode)
+                </span>
+                <div className={`text-base sm:text-2xl font-extrabold mt-1 flex items-center gap-1.5 ${
+                  isAutoModeActive ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-200'
+                }`}>
+                  {isAutoModeActive ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                      <span>AUTO MODE</span>
+                    </>
+                  ) : (
+                    <span>MANUAL MODE</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                  {isAutoModeActive ? 'ઓટો સાયકલ: <=15% પર શરૂ' : 'મેન્યુઅલ કંટ્રોલ સક્રિય'}
+                </div>
+              </div>
+
+              {/* 6. Connection & Sensor Diagnostics */}
+              <div className={`p-3 sm:p-3.5 rounded-2xl border transition-colors ${
+                (usbTelemetry?.sensorError || tank.sensorError)
+                  ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800'
+                  : isUsbConnected
+                  ? 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60'
+                  : 'bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50'
+              }`}>
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+                  ૬. સેન્સર / કનેક્શન સ્થિતિ
+                </span>
+                <div className={`text-sm sm:text-lg font-bold mt-1 truncate ${
+                  (usbTelemetry?.sensorError || tank.sensorError)
+                    ? 'text-rose-600 dark:text-rose-400 font-mono'
+                    : isUsbConnected
+                    ? 'text-emerald-700 dark:text-emerald-300'
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}>
+                  {(usbTelemetry?.sensorError || tank.sensorError)
+                    ? `ખામી: ${usbTelemetry?.sensorError || tank.sensorError}`
+                    : isUsbConnected
+                    ? 'સામાન્ય (OK - ખામી નથી)'
+                    : 'ડિસ્કનેક્ટેડ'}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                  {formatLastUpdate(tank.lastReadingTime)}
                 </div>
               </div>
             </div>
 
-            {/* Last Communication Time & Sensor Health Detail */}
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="text-slate-500 dark:text-slate-400">છેલ્લો સંપર્ક:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
-                  {formatLastUpdate(tank.lastReadingTime)}
+            {/* Sensor Error Alert Banner if Sensor Error Present */}
+            {(usbTelemetry?.sensorError || tank.sensorError) && (
+              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  <strong>સેન્સર ચેતવણી:</strong> Arduino એ <strong>{usbTelemetry?.sensorError || tank.sensorError}</strong> રિપોર્ટ કર્યું છે. સલામતી ખાતર પંપ બંધ કરવામાં આવ્યો છે અને ઓટો મોડ પોઝ થયો છે.
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 dark:text-slate-400">સેન્સર ડાયગ્નોસ્ટિક:</span>
-                <span className={`font-bold font-mono ${tank.sensorHealth === 'OK' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
-                  {tank.sensorHealth === 'OK' ? 'સામાન્ય (OK)' : tank.sensorHealth}
+            )}
+          </div>
+
+          {/* Automatic Mode Toggle Station */}
+          <div className={`border rounded-3xl p-4 sm:p-6 shadow-sm transition-all ${
+            isAutoModeActive
+              ? 'bg-linear-to-r from-blue-50/90 via-sky-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:via-sky-950/40 dark:to-indigo-950/40 border-blue-300 dark:border-blue-700'
+              : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <Cpu className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    ઓટોમેટિક મોડ (AUTOMATIC MODE TOGGLE)
+                  </h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    isAutoModeActive
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}>
+                    {isAutoModeActive ? 'AUTO MODE: ON (સક્રિય)' : 'AUTO MODE: OFF (બંધ)'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  જ્યારે સક્રિય હોય, ત્યારે Arduino Uno ને <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-blue-600 dark:text-blue-400">TARGET:{selectedTarget}</code> અને <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-blue-600 dark:text-blue-400">MODE:AUTO</code> મોકલવામાં આવે છે.
+                </p>
+              </div>
+
+              {/* Clearly Visible AUTO MODE Toggle Switch Button */}
+              <button
+                onClick={handleToggleAutoMode}
+                disabled={!isUsbConnected}
+                className={`flex items-center justify-center gap-3 px-5 py-3 rounded-2xl font-bold text-sm transition-all transform active:scale-95 cursor-pointer shadow-sm ${
+                  !isUsbConnected
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                    : isAutoModeActive
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 ring-2 ring-blue-400/50'
+                    : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+                }`}
+                title={
+                  !isUsbConnected
+                    ? 'ઓટો મોડ માટે પહેલા કંટ્રોલર કનેક્ટ કરો'
+                    : isAutoModeActive
+                    ? 'ઓટો મોડ બંધ કરો (Switch to MANUAL)'
+                    : 'ઓટો મોડ ચાલુ કરો (Enable AUTO MODE)'
+                }
+              >
+                {isAutoModeActive ? (
+                  <>
+                    <ToggleRight className="w-6 h-6 text-white" />
+                    <span>ઓટો મોડ ચાલુ (ACTIVE)</span>
+                  </>
+                ) : (
+                  <>
+                    <ToggleLeft className="w-6 h-6 text-slate-400" />
+                    <span>ઓટો મોડ બંધ (INACTIVE)</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Auto Mode Cycle Rule Card */}
+            <div className="mt-3.5 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
+              <div className="flex items-start gap-2">
+                <span className="font-bold text-blue-700 dark:text-blue-300 shrink-0">સાયકલ નિયમ:</span>
+                <span>
+                  પાણીનું સ્તર <strong>૧૫% કે તેથી નીચે</strong> પહોંચતાં જ Arduino Uno આપમેળે પંપ શરૂ કરશે, અને પસંદ કરેલા ટાર્ગેટ (<strong>{selectedTarget}%</strong>) પર પહોંચતાં આપમેળે બંધ કરશે. જો પાણી પાછળથી ફરી ૧૫% કે તેથી નીચે જશે, તો સાયકલ પુનરાવર્તિત થશે.
+                </span>
+              </div>
+              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400">
+                <span className="font-bold shrink-0">સુરક્ષા નિયમ:</span>
+                <span>
+                  મેન્યુઅલ STOP આદેશ અથવા સેન્સર ખામી બાદ, જ્યાં સુધી તમે સ્પષ્ટપણે અહીંથી ફરી ઓટો મોડ સક્રિય ન કરો ત્યાં સુધી પંપ આપમેળે પુનઃ શરૂ થશે નહીં.
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Water-Level Control Station: Target Selector & Action Buttons */}
+          {/* Water-Level Control Station: 20% to 90% Target Slider & Action Buttons */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="space-y-0.5">
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Sliders className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-                  <span>વોટર-લેવલ કંટ્રોલ સ્ટેશન (Arduino Uno Direct Control)</span>
+                  <span>વોટર-લેવલ ટાર્ગેટ સ્લાઈડર (Water Target Slider: 20% to 90%)</span>
                 </h3>
                 <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-                  લક્ષ્યાંક સ્તર પસંદ કરો (૧૦% થી ૧૦૦%, ૫% ના વધારા સાથે) અને પંપ શરૂ કરો.
+                  પસંદ કરેલ લક્ષ્યાંક એ તે ફિલિંગ સાયકલ માટેનું મહત્તમ માન્ય સ્તર છે. સિસ્ટમ ક્યારેય ૯૦% થી વધુ ટાર્ગેટ મોકલતી નથી.
                 </p>
               </div>
 
-              {/* Big Target Level Indicator */}
+              {/* Prominent Target Percentage Display */}
               <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-extrabold text-sky-600 dark:text-sky-400 font-mono tabular-nums">
+                <div className="text-2xl sm:text-4xl font-extrabold text-sky-600 dark:text-sky-400 font-mono tabular-nums">
                   {selectedTarget}%
-                </span>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  ચક્ર મહત્તમ: {selectedTarget}%
+                </div>
               </div>
             </div>
 
-            {/* Target Level Slider (10% to 100%, 5% increments) */}
+            {/* Target Level Slider (Strictly 20% to 90%, 5% increments) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-                <span>લક્ષ્યાંક સ્તર સિલેક્ટર (Target Level):</span>
+                <span>લક્ષ્યાંક સ્તર સિલેક્ટર (20% - 90% Range):</span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  {selectedTarget}%
+                  {selectedTarget}% (મહત્તમ માન્ય મર્યાદા: 90%)
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => handleTargetChange(selectedTarget - 5)}
-                  disabled={selectedTarget <= 10}
+                  disabled={selectedTarget <= 20}
                   className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors active:scale-95 shrink-0"
-                  title="5% ઘટાડો"
+                  title="5% ઘટાડો (ન્યૂનતમ 20%)"
                 >
                   -5%
                 </button>
 
                 <input
                   type="range"
-                  min="10"
-                  max="100"
+                  min="20"
+                  max="90"
                   step="5"
                   value={selectedTarget}
                   onChange={(e) => handleTargetChange(parseInt(e.target.value, 10))}
@@ -621,27 +812,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 <button
                   onClick={() => handleTargetChange(selectedTarget + 5)}
-                  disabled={selectedTarget >= 100}
+                  disabled={selectedTarget >= 90}
                   className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center justify-center cursor-pointer transition-colors active:scale-95 shrink-0"
-                  title="5% વધારો"
+                  title="5% વધારો (મહત્તમ 90%)"
                 >
                   +5%
                 </button>
               </div>
 
               <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                <span>૧૦%</span>
-                <span>૨૫%</span>
+                <span>૨૦%</span>
+                <span>૩૫%</span>
                 <span>૫૦%</span>
-                <span>૭૫%</span>
-                <span>૯૦%</span>
-                <span>૧૦૦%</span>
+                <span>૬૫%</span>
+                <span>૮૦%</span>
+                <span>૯૦% (Max)</span>
               </div>
 
-              {/* Quick Preset Chips */}
+              {/* Quick Preset Chips within 20% to 90% */}
               <div className="flex items-center gap-1.5 sm:gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-slate-500 font-medium">ઝડપી લક્ષ્યાંક:</span>
-                {[25, 50, 75, 80, 85, 90, 95, 100].map((pct) => (
+                {[20, 30, 40, 50, 60, 70, 75, 80, 85, 90].map((pct) => (
                   <button
                     key={pct}
                     onClick={() => handleTargetChange(pct)}
@@ -657,10 +848,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            {/* Action Buttons: Start Filling, Stop Pump, Emergency Stop */}
+            {/* Action Buttons: START PUMP, STOP PUMP, EMERGENCY STOP */}
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* 1. Start Filling Button */}
+                {/* 1. START PUMP Button: sends TARGET:xx -> MODE:MANUAL -> START */}
                 <button
                   onClick={handleStartFilling}
                   disabled={!isUsbConnected || !hasValidSensorData || isPumpRunning || (tank.currentPercent !== null && tank.currentPercent >= selectedTarget)}
@@ -671,21 +862,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   }`}
                   title={
                     !isUsbConnected
-                      ? 'USB જોડાયેલ નથી'
+                      ? 'કંટ્રોલર જોડાયેલ નથી'
                       : !hasValidSensorData
                       ? 'સેન્સર રીડિંગ ઉપલબ્ધ નથી'
                       : isPumpRunning
                       ? 'પંપ પહેલેથી ચાલુ છે'
                       : (tank.currentPercent !== null && tank.currentPercent >= selectedTarget)
                       ? 'ટાંકી પહેલેથી જ લક્ષ્યાંક પર છે'
-                      : `પાણી ભરો (TARGET:${selectedTarget} & START)`
+                      : `START PUMP (TARGET:${selectedTarget} -> MODE:MANUAL -> START)`
                   }
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  <span>Start Filling (શરૂ કરો)</span>
+                  <span>START PUMP (શરૂ કરો)</span>
                 </button>
 
-                {/* 2. Stop Pump Button */}
+                {/* 2. STOP PUMP Button: sends STOP immediately */}
                 <button
                   onClick={handleStopPump}
                   disabled={!isUsbConnected || !isPumpRunning}
@@ -694,10 +885,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-700'
                       : 'bg-amber-600 hover:bg-amber-700 active:scale-95 text-white cursor-pointer shadow-amber-600/20'
                   }`}
-                  title="મોટર પંપ તાત્કાલિક બંધ કરો (STOP)"
+                  title="મોટર પંપ તાત્કાલિક બંધ કરો (STOP આદેશ મોકલે છે)"
                 >
                   <Square className="w-4 h-4 fill-current" />
-                  <span>Stop Pump (બંધ કરો)</span>
+                  <span>STOP PUMP (બંધ કરો)</span>
                 </button>
 
                 {/* 3. Emergency Stop Button */}
@@ -709,7 +900,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-700'
                       : 'bg-rose-600 hover:bg-rose-700 active:scale-95 text-white cursor-pointer shadow-rose-600/30'
                   }`}
-                  title="તાત્કાલિક ઈમરજન્સી સ્ટોપ આદેશ મોકલો (STOP)"
+                  title="તાત્કાલિક ઈમરજન્સી સ્ટોપ આદેશ મોકલો (STOP x 2)"
                 >
                   <AlertOctagon className="w-4 h-4" />
                   <span>Emergency Stop</span>
@@ -722,7 +913,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <Lock className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>
                     {!isUsbConnected
-                      ? 'સુરક્ષા નિયમ: પંપ શરૂ કરવા માટે પહેલા "Connect USB" પર ક્લિક કરીને Arduino Uno ને જોડો.'
+                      ? 'સુરક્ષા નિયમ: પંપ શરૂ કરવા માટે પહેલા "Connect USB" અથવા "Connect Bluetooth" પર ક્લિક કરીને Arduino Uno ને જોડો.'
                       : 'સુરક્ષા નિયમ: માન્ય અલ્ટ્રાસોનિક સેન્સર ડેટા મળ્યા પછી જ પંપ શરૂ કરવાની મંજૂરી મળશે.'}
                   </span>
                 </div>
@@ -730,21 +921,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Autonomous Safety & Hardware Protection Notice */}
-          <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-3xl p-5 shadow-xs space-y-2">
-            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>હાર્ડવેર સેફ્ટી & ઓટો-કટઓફ સિદ્ધાંત</span>
+          {/* Autonomous Safety & Target Margin Display */}
+          <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-3xl p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>હાર્ડવેર સેફ્ટી અને સેફ્ટી માર્જિન (Safety & Limits)</span>
+              </div>
+              <span className="text-xs font-mono font-bold text-amber-800 dark:text-amber-300">
+                સેફ્ટી માર્જિન: {100 - selectedTarget}% બફર
+              </span>
             </div>
+
+            {/* Visual Safety Margin Bar */}
+            <div className="space-y-1">
+              <div className="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-800 flex overflow-hidden">
+                {/* 0-15% Auto-start zone */}
+                <div className="h-full bg-amber-400" style={{ width: '15%' }} title="ઓટો-સ્ટાર્ટ ઝોન (<=15%)" />
+                {/* 15% to Target filling zone */}
+                <div className="h-full bg-sky-500" style={{ width: `${Math.max(0, selectedTarget - 15)}%` }} title={`ફિલિંગ ઝોન (${selectedTarget}%)`} />
+                {/* Target to 90% available zone */}
+                <div className="h-full bg-slate-300 dark:bg-slate-700" style={{ width: `${Math.max(0, 90 - selectedTarget)}%` }} title="અન્ય અનુમતિ રેન્જ" />
+                {/* 90% to 97% Hardware Safety Buffer */}
+                <div className="h-full bg-amber-500" style={{ width: '7%' }} title="સુરક્ષા માર્જિન બફર (90% to 97%)" />
+                {/* 97% to 100% Critical Overflow Cutoff */}
+                <div className="h-full bg-rose-600" style={{ width: '3%' }} title="ક્રિટિકલ ઓવરફ્લો કટઓફ (>=97%)" />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                <span>0% (ખાલી: 13.26cm)</span>
+                <span>15% (ઓટો-સ્ટાર્ટ)</span>
+                <span>{selectedTarget}% (ટાર્ગેટ)</span>
+                <span>90% (હાર્ડ લિમિટ)</span>
+                <span>97% (ઓવરફ્લો કટઓફ: 2.40cm)</span>
+              </div>
+            </div>
+
             <ul className="text-xs text-amber-900/90 dark:text-amber-200/90 space-y-1 list-disc list-inside leading-relaxed pl-1">
               <li>
-                <strong>સ્વતંત્ર ઓટો-કટઓફ:</strong> બ્રાઉઝર હેંગ થાય કે USB કેબલ ડિસ્કનેક્ટ થાય તો પણ Arduino Uno ફર્મવેર જાતે જ લક્ષ્યાંક ({selectedTarget}%) પર પંપ બંધ કરશે.
+                <strong>સ્વતંત્ર ઓટો-કટઓફ:</strong> બ્રાઉઝર બંધ હોય કે કેબલ અલગ થાય, Arduino Uno પોતે જ લક્ષ્યાંક (<strong>{selectedTarget}%</strong>) પર પંપ બંધ કરશે.
               </li>
               <li>
-                <strong>ક્રિટિકલ ઓવરફ્લો સંરક્ષણ:</strong> ટાંકી ૯૭% કે તેથી વધુ ભરાતા માઇક્રોકંટ્રોલર સ્વતંત્ર રીતે મોટર બંધ કરીને બઝર એલાર્મ વગાડશે.
+                <strong>૯૦% મહત્તમ હાર્ડ લિમિટ:</strong> એપ્લિકેશન અને ફર્મવેર બંને ૯૦% થી વધુ લક્ષ્યાંક ક્યારેય સ્વીકારતા નથી. {100 - selectedTarget}% ની સુરક્ષા ગાળો સતત રહે છે.
               </li>
               <li>
-                <strong>પાવર સેફ્ટી:</strong> પંપ મોટરને ક્યારેય Arduino ના 5V અથવા USB પિનથી ચલાવશો નહીં. સ્વતંત્ર 12V DC/230V AC સપ્લાય રિલે મારફત જ જોડવો.
+                <strong>ઓટો ૧૫% થ્રેશોલ્ડ:</strong> ઓટો મોડમાં પાણી ૧૫% કે તેથી નીચે જતાં આપમેળે ભરવાનું શરૂ થશે અને {selectedTarget}% પર બંધ થશે.
+              </li>
+              <li>
+                <strong>સેન્સર ફોલ્ટ શટડાઉન:</strong> અલ્ટ્રાસોનિક સેન્સર ડિસ્કનેક્ટ થતાં અથવા ટાઈમઆઉટ થતાં Arduino તત્કાલ પંપ બંધ કરે છે.
+              </li>
+              <li>
+                <strong>ક્રિટિકલ ઓવરફ્લો (૯૭%):</strong> ટાંકી ૯૭% કે તેથી વધુ ભરાતાં માઇક્રોકંટ્રોલર સ્વતંત્ર રીતે મોટર બંધ કરી સતત બઝર સાયરન વગાડશે.
               </li>
             </ul>
           </div>

@@ -22,8 +22,8 @@ export const AutomationView: React.FC<AutomationViewProps> = ({
   state,
 }) => {
   const { tank, calibration, hardwareStatus } = state;
-  const [minPercent, setMinPercent] = useState(25);
-  const [targetPercent, setTargetPercent] = useState(85);
+  const [minPercent, setMinPercent] = useState(15);
+  const [targetPercent, setTargetPercent] = useState(75);
   const [savedNotice, setSavedNotice] = useState(false);
 
   const handleSaveThresholds = (e: React.FormEvent) => {
@@ -118,7 +118,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  લઘુત્તમ સ્તર ઓટો-સ્ટાર્ટ ટ્રિગર (Low Trigger)
+                  લઘુત્તમ સ્તર ઓટો-સ્ટાર્ટ ટ્રિગર (Low Trigger: &lt;= 15%)
                 </span>
                 <span className="font-mono text-lg font-extrabold text-amber-600 dark:text-amber-400">
                   {minPercent}%
@@ -127,13 +127,13 @@ export const AutomationView: React.FC<AutomationViewProps> = ({
               <input
                 type="range"
                 min="10"
-                max="45"
+                max="25"
                 value={minPercent}
                 onChange={(e) => setMinPercent(parseInt(e.target.value, 10))}
                 className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
               />
               <span className="text-[11px] text-slate-500 block">
-                જ્યારે પાણી {minPercent}% થી નીચે જાય ત્યારે પંપ શરૂ કરવાની દરખાસ્ત તૈયાર થાય.
+                જ્યારે પાણી {minPercent}% કે તેથી નીચે જાય ત્યારે Arduino Uno આપમેળે પંપ શરૂ કરે છે.
               </span>
             </div>
 
@@ -141,7 +141,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  ટાર્ગેટ ઓટો-સ્ટોપ ટ્રિગર (Target High Stop)
+                  ટાર્ગેટ ઓટો-સ્ટોપ ટ્રિગર (Target High Stop: 20% to 90%)
                 </span>
                 <span className="font-mono text-lg font-extrabold text-sky-600 dark:text-sky-400">
                   {targetPercent}%
@@ -149,14 +149,14 @@ export const AutomationView: React.FC<AutomationViewProps> = ({
               </div>
               <input
                 type="range"
-                min="60"
-                max="95"
+                min="20"
+                max="90"
                 value={targetPercent}
                 onChange={(e) => setTargetPercent(parseInt(e.target.value, 10))}
                 className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
               />
               <span className="text-[11px] text-slate-500 block">
-                પાણી {targetPercent}% પહોંચતાં જ રિલે સ્ટોપ સિગ્નલ મોકલાશે (મહત્તમ સલામત: ૯૫%).
+                પાણી {targetPercent}% પહોંચતાં જ રિલે સ્ટોપ સિગ્નલ મોકલાશે (મહત્તમ અનુમતિ મર્યાદા: ૯૦%).
               </span>
             </div>
           </div>
