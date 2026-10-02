@@ -1,4 +1,4 @@
-#include <SoftwareSerial.h>
+export const ARDUINO_UNO_FIRMWARE_CODE = `#include <SoftwareSerial.h>
 
 // HC-05: TX -> D2, RX <- D3 through voltage divider
 SoftwareSerial BT(2, 3);
@@ -382,7 +382,7 @@ void readCommandsFrom(Stream &port, String &buffer) {
   while (port.available()) {
     char c = port.read();
 
-    if (c == '\n' || c == '\r') {
+    if (c == '\\n' || c == '\\r') {
       if (buffer.length() > 0) {
         processCommand(buffer);
         buffer = "";
@@ -447,3 +447,4 @@ void loop() {
     sendStatus();
   }
 }
+`;

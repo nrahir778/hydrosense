@@ -96,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
               હાઈડ્રોસેન્સ IoT
             </span>
             <span className="hidden sm:inline text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-              Arduino Uno USB (૧૩.૨૬ / ૨.૪૦ cm)
+              Arduino Uno Controller (9600 Baud)
             </span>
           </div>
         </button>

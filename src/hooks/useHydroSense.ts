@@ -296,7 +296,9 @@ export function useHydroSense() {
       setUsbTelemetry(telemetry);
       setState((prev) => {
         const isStale = telemetry.isStale;
-        const validSensor = !isStale && telemetry.distanceCm >= 0.5 && telemetry.distanceCm <= 400.0 && !telemetry.sensorError;
+        const hasValidLevel = !isStale && telemetry.levelPercent !== null && !isNaN(telemetry.levelPercent) && telemetry.levelPercent >= 0 && telemetry.levelPercent <= 100;
+        const hasValidDistance = !isStale && telemetry.distanceCm !== null && !isNaN(telemetry.distanceCm) && telemetry.distanceCm > 0;
+        const validSensor = !isStale && (hasValidLevel || hasValidDistance) && !telemetry.sensorError;
         const hwStatus = isStale
           ? 'OFFLINE'
           : telemetry.sensorError
@@ -305,14 +307,14 @@ export function useHydroSense() {
           ? 'ONLINE'
           : 'SENSOR_ERROR';
         const sensorHealth = telemetry.sensorError ? 'OUT_OF_RANGE' : validSensor ? 'OK' : 'OUT_OF_RANGE';
-        const currentLiters = validSensor
+        const currentLiters = hasValidLevel
           ? Math.round((telemetry.levelPercent / 100) * prev.tank.capacityLiters)
           : null;
 
         const updatedTank: TankState = {
           ...prev.tank,
-          currentPercent: validSensor ? telemetry.levelPercent : null,
-          currentDistanceCm: validSensor ? telemetry.distanceCm : null,
+          currentPercent: hasValidLevel ? telemetry.levelPercent : null,
+          currentDistanceCm: hasValidDistance ? telemetry.distanceCm : null,
           currentLiters,
           pumpStatus: telemetry.pumpStatus === 'ON' ? 'RUNNING' : 'OFF',
           targetPercent: telemetry.targetPercent,

@@ -145,11 +145,11 @@ export const SafetyView: React.FC<SafetyViewProps> = ({
                   {tank.sensorHealth === 'OK' ? 'સામાન્ય (OK)' : tank.sensorHealth}
                 </span>
               </div>
-              <div className="text-[11px] text-slate-500 font-mono">
-                કેલિબ્રેશન: {calibration.fullDistanceCm}cm (પૂર્ણ) – {calibration.emptyDistanceCm}cm (ખાલી)
+              <div className="text-[11px] text-slate-500 font-medium">
+                ટાંકી સ્તર: {tank.currentPercent !== null ? `${tank.currentPercent}% ભરાયેલ` : 'ડેટા પ્રતિક્ષામાં'}
               </div>
-              <div className="text-[11px] text-sky-600 dark:text-sky-400 font-mono font-bold">
-                હાલનું અંતર: {tank.currentDistanceCm !== null ? `${tank.currentDistanceCm} cm` : 'પ્રતિક્ષામાં'}
+              <div className="text-[11px] text-sky-600 dark:text-sky-400 font-bold">
+                ઓટો-કટઓફ માર્જિન: {Math.max(0, tank.targetPercent - 2)}% (ટાર્ગેટ: {tank.targetPercent}%)
               </div>
             </div>
           </div>

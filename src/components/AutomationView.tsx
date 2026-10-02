@@ -51,7 +51,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર · કેલિબ્રેશન: {calibration.fullDistanceCm}cm (૧૦૦%) થી {calibration.emptyDistanceCm}cm (૦%)
+                શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર · સ્માર્ટ ઓટોમેશન કંટ્રોલર
               </p>
             </div>
           </div>

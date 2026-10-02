@@ -1,8 +1,8 @@
 import { SystemState, TankState, PhysicalTankCalibration, IntegrationConfig, AutoConfig, SystemSafety, AiLearnedMetrics } from '../types';
 
 export const DEFAULT_CALIBRATION: PhysicalTankCalibration = {
-  emptyDistanceCm: 13.26,        // Calibrated distance when tank is empty (0%)
-  fullDistanceCm: 2.40,          // Calibrated distance when tank is 100% full
+  emptyDistanceCm: 11.32,        // Calibrated distance when tank is empty (0%)
+  fullDistanceCm: 2.37,          // Calibrated distance when tank is 100% full
   nearFullWarningPercent: 90.0,  // Warning when level > 90%
   criticalFullWarningPercent: 97.0, // Critical alert when level >= 97%
   lowWaterWarningPercent: 15.0,  // Warning when level <= 15%
@@ -21,13 +21,13 @@ export const DEFAULT_TANK: TankState = {
   nameGujarati: 'શાળા મુખ્ય પાણીની ટાંકી (HC-SR04)',
   type: 'MAIN_TANK',
   capacityLiters: 1000,
-  totalDepthCm: 13.26,
-  sensorOffsetCm: 2.40,
+  totalDepthCm: 11.32,
+  sensorOffsetCm: 2.37,
   currentDistanceCm: null,      // Clean null state - waiting for physical hardware
   currentPercent: null,         // Clean null state - no fake data
   currentLiters: null,
   pumpStatus: 'LOCKED',         // Monitoring separated from pump control
-  targetPercent: 75,
+  targetPercent: 80,
   operatingMode: 'MANUAL',
   autoStopAtTarget: true,
   sensorHealth: 'WAITING_CONNECTION',

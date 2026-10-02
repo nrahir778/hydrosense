@@ -13,8 +13,8 @@ export type HardwareConnectionState = 'CONNECTED' | 'DISCONNECTED';
 export type HardwareStatus = 'CONNECTING' | 'ONLINE' | 'OFFLINE' | 'SENSOR_ERROR';
 
 export interface PhysicalTankCalibration {
-  emptyDistanceCm: number;        // Default: 13.26 cm
-  fullDistanceCm: number;         // Default: 2.40 cm
+  emptyDistanceCm: number;        // Default: 11.32 cm (Empty tank 0%)
+  fullDistanceCm: number;         // Default: 2.37 cm (Full tank 100%)
   nearFullWarningPercent: number; // Default: 90.0% (> 90%)
   criticalFullWarningPercent: number; // Default: 97.0% (>= 97%)
   lowWaterWarningPercent: number; // Default: 15.0%
@@ -26,13 +26,13 @@ export interface TankState {
   nameGujarati: string;
   type: 'MAIN_TANK';
   capacityLiters: number;
-  totalDepthCm: number;        // Physical tank height span: emptyDistanceCm (13.26 cm)
-  sensorOffsetCm: number;      // Distance to 100% full: fullDistanceCm (2.40 cm)
+  totalDepthCm: number;        // Physical tank height span: emptyDistanceCm (11.32 cm)
+  sensorOffsetCm: number;      // Distance to 100% full: fullDistanceCm (2.37 cm)
   currentDistanceCm: number | null;   // Raw distance reading from HC-SR04 in cm
   currentPercent: number | null;      // Calculated 0 - 100%
   currentLiters: number | null;       // Calculated liters
   pumpStatus: PumpStatus;
-  targetPercent: number;       // Target level (20% to 90%)
+  targetPercent: number;       // Target level (20% to 90%, Default: 80%)
   operatingMode: 'MANUAL' | 'AUTO'; // Physical Arduino operating mode
   autoStopAtTarget: boolean;
   sensorHealth: SensorHealth;

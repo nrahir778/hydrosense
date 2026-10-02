@@ -7,14 +7,15 @@ export interface PinoutItem {
 }
 
 export const ARDUINO_UNO_PINOUT: PinoutItem[] = [
-  { pin: 'USB Type-B', component: 'Host Computer / Chrome Browser', role: 'Web Serial 115200 Baud Communication & 5V Power', voltage: '5V USB', notes: 'Connects directly to PC running Chrome/Edge. Communicates via Web Serial API with newline-delimited protocol.' },
+  { pin: 'USB Type-B', component: 'Host Computer / Chrome Browser', role: 'Web Serial 9600 Baud Communication & 5V Power', voltage: '5V USB', notes: 'Connects directly to PC running Chrome/Edge. Communicates via Web Serial API (9600 Baud).' },
+  { pin: 'D2 (RX)', component: 'HC-05 Bluetooth Module TX', role: 'SoftwareSerial BT(2, 3) RX pin', voltage: '5V / 3.3V', notes: 'Connects directly to HC-05 TX pin (9600 Baud).' },
+  { pin: 'D3 (TX)', component: 'HC-05 Bluetooth Module RX', role: 'SoftwareSerial BT(2, 3) TX pin', voltage: '3.3V (via Divider)', notes: 'Connects to HC-05 RX pin through 1kΩ / 2kΩ voltage divider.' },
   { pin: 'D9', component: 'HC-SR04 Ultrasonic Trigger', role: 'Sends 10µs ultrasonic pulse', voltage: '5V TTL', notes: 'Connected directly to HC-SR04 TRIG pin.' },
   { pin: 'D10', component: 'HC-SR04 Ultrasonic Echo', role: 'Measures return echo pulse duration', voltage: '5V TTL', notes: 'Pulse width corresponds to distance (duration * 0.0343 / 2 cm).' },
-  { pin: 'D7', component: '5V Relay Module IN', role: 'Pump Motor Control Relay (Active-LOW)', voltage: '5V Logic', notes: 'CRITICAL: Active-LOW. LOW = Relay Energized (Pump ON), HIGH = Relay De-energized (Pump OFF). Default OFF.' },
-  { pin: 'D8', component: 'Piezo Buzzer (+)', role: 'Acoustic Alarm & Beep Chimes', voltage: '5V', notes: 'Sounds on Target Reached, Sensor Fault, or Emergency Stop.' },
-  { pin: 'D13', component: 'Built-in Status LED', role: 'Heartbeat & Filling Indicator', voltage: '5V', notes: 'Flashes fast while pump is filling; solid when idle.' },
-  { pin: '5V Rail', component: 'Sensor & Opto VCC', role: 'Powers HC-SR04 and Relay Optocoupler VCC', voltage: '5V DC', notes: 'NEVER power the pump motor from this pin!' },
-  { pin: 'GND', component: 'Common Ground', role: 'Reference Ground', voltage: '0V', notes: 'Tied to HC-SR04 GND, Relay GND, and Buzzer (-).' },
+  { pin: 'D7', component: 'Pump Relay / Motor Driver', role: 'Pump Motor Control (HIGH = ON, LOW = OFF)', voltage: '5V Logic', notes: 'HIGH turns pump ON; LOW turns pump OFF. Auto safety shutoff.' },
+  { pin: 'D8', component: 'Piezo Buzzer (+)', role: 'Acoustic Alarm & Beep Alerts', voltage: '5V', notes: '90-97%: ધીમી બીપ, 97-99.9%: ઝડપી બીપ, 99.9%+: સતત બીપ, ટાર્ગેટ: ૧ સેકન્ડ લાંબી બીપ.' },
+  { pin: '5V Rail', component: 'Sensor & Bluetooth VCC', role: 'Powers HC-SR04, HC-05, and Relay Logic', voltage: '5V DC', notes: 'Powers low-current components.' },
+  { pin: 'GND', component: 'Common Ground', role: 'Reference Ground', voltage: '0V', notes: 'Tied to HC-SR04 GND, HC-05 GND, Relay GND, and Buzzer (-).' },
 ];
 
 export const MEGA_PINOUT: PinoutItem[] = [

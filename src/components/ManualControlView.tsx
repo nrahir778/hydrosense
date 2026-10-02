@@ -23,6 +23,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { BaudRateSelector } from './BaudRateSelector';
+import { SerialMonitorModal } from './SerialMonitorModal';
 
 interface ManualControlViewProps {
   state: SystemState;
@@ -83,6 +84,7 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
   onDisableAutoMode,
 }) => {
   const { tank, calibration, hardwareStatus } = state;
+  const [showSerialMonitor, setShowSerialMonitor] = useState(false);
   // Target percentage strictly 20% to 90%
   const [targetPercent, setTargetPercent] = useState<number>(() => {
     const initial = tank.targetPercent || 75;
@@ -410,16 +412,16 @@ export const ManualControlView: React.FC<ManualControlViewProps> = ({
                 </div>
               </div>
 
-              {/* Measured Ultrasonic Distance */}
+              {/* Operating Mode */}
               <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
                 <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
-                  અંતર (Distance)
+                  ઓપરેટિંગ મોડ (Mode)
                 </span>
-                <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 font-mono">
-                  {tank.currentDistanceCm !== null ? `${tank.currentDistanceCm} cm` : '--'}
+                <div className="text-base sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 font-mono">
+                  {tank.operatingMode || 'MANUAL'}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  HC-SR04 ઇકો
+                  {tank.operatingMode === 'AUTO' ? 'ઓટો કંટ્રોલ' : 'મેન્યુઅલ કંટ્રોલ'}
                 </div>
               </div>
 

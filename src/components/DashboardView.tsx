@@ -29,6 +29,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Cpu,
+  Terminal,
 } from 'lucide-react';
 import {
   requestScreenWakeLock,
@@ -36,6 +37,7 @@ import {
   triggerHaptic,
 } from '../utils/androidOptimizations';
 import { BaudRateSelector } from './BaudRateSelector';
+import { SerialMonitorModal } from './SerialMonitorModal';
 
 interface DashboardViewProps {
   state: SystemState;
@@ -97,6 +99,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const { tank, hardwareStatus, calibration } = state;
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSerialMonitor, setShowSerialMonitor] = useState(false);
   // Target filling percentage: strictly 20% to 90% (never above 90%)
   const [selectedTarget, setSelectedTarget] = useState<number>(() => {
     const initial = tank.targetPercent || 75;
@@ -239,8 +242,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     e.preventDefault();
     await onUpdateConfig({
       calibration: {
-        emptyDistanceCm: parseFloat(emptyDist) || 13.26,
-        fullDistanceCm: parseFloat(fullDist) || 2.40,
+        emptyDistanceCm: parseFloat(emptyDist) || 11.32,
+        fullDistanceCm: parseFloat(fullDist) || 2.37,
         nearFullWarningPercent: parseFloat(nearFullPct) || 90.0,
         criticalFullWarningPercent: parseFloat(criticalPct) || 97.0,
         lowWaterWarningPercent: parseFloat(lowWaterPct) || 15.0,
@@ -301,7 +304,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર · કેલિબ્રેશન: ખાલી: {calibration.emptyDistanceCm}cm | પૂર્ણ: {calibration.fullDistanceCm}cm
+              શ્રી સરકારી માધ્યમિક અને ઉચ્ચ. માધ્યમિક શાળા–લાખાપર · સ્માર્ટ વોટર ટેન્ક મોનિટરિંગ અને કંટ્રોલ સિસ્ટમ
             </p>
           </div>
 
@@ -392,6 +395,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
 
             <button
+              onClick={() => {
+                triggerHaptic('tap');
+                setShowSerialMonitor(true);
+              }}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="લાઈવ સીરીયલ મોનિટર અને રો-ડેટા કન્સોલ ખોલો"
+            >
+              <Terminal className="w-4 h-4 text-sky-500" />
+              <span>Serial Monitor</span>
+            </button>
+
+            <button
               onClick={() => setShowSettingsModal(true)}
               className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="ચેતવણી થ્રેશોલ્ડ અને કેલિબ્રેશન સેટિંગ્સ"
@@ -456,6 +471,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
+      {/* Serial Monitor Troubleshooting Guide Card */}
+      {!isUsbConnected && (
+        <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 text-xs space-y-2.5 shadow-xs">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-200">
+              <HelpCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Arduino IDE Serial Monitor માં લેવલ દેખાય છે પણ એપમાં કેમ નથી દેખાતું?</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('tap');
+                setShowSerialMonitor(true);
+              }}
+              className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+            >
+              <Terminal className="w-3 h-3" />
+              <span>લાઈવ Serial Monitor ખોલો</span>
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px] text-slate-700 dark:text-slate-300">
+            <div className="bg-white/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 space-y-1">
+              <span className="font-bold text-amber-800 dark:text-amber-300 block">૧. Arduino IDE Serial Monitor બંધ કરો</span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                કમ્પ્યુટરમાં USB/COM પોર્ટ ફક્ત ૧ સોફ્ટવેરમાં એક સમયે ચાલે છે. જો Arduino IDE નું Serial Monitor ચાલુ હશે તો બ્રાઉઝર પોર્ટ ઓપન નહીં કરી શકે. પહેલા તે વિન્ડો બંધ કરો.
+              </p>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 space-y-1">
+              <span className="font-bold text-amber-800 dark:text-amber-300 block">૨. Connect USB ({usbBaudRate || 9600}) ક્લિક કરો</span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                Arduino IDE Serial Monitor બંધ કર્યા પછી, આ એપમાં <strong>Connect USB</strong> બટન દબાવો અને તમારા Arduino Uno નો COM પોર્ટ પસંદ કરો (Baud દર: ૯૬૦૦).
+              </p>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 space-y-1">
+              <span className="font-bold text-amber-800 dark:text-amber-300 block">૩. ડેટા ફોર્મેટ &amp; Serial.println</span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                એપ <code className="text-sky-600 dark:text-sky-400 font-mono">LEVEL:45.0...</code> તેમજ <code className="text-sky-600 dark:text-sky-400 font-mono">Level: 45%</code> કે ફક્ત <code className="text-sky-600 dark:text-sky-400 font-mono">45%</code> જેવા તમામ સામાન્ય ફોર્મેટને આપોઆપ પારખી લે છે. દરેક રીડિંગમાં <code className="font-mono">Serial.println()</code> જરૂરી છે.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Web Serial Browser Compatibility Alert */}
       {!isUsbSupported && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl p-4 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
@@ -494,6 +552,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-1">
               સલાહ: જો COM પોર્ટ વ્યસ્ત (BUSY) બતાવે, તો Arduino IDE નો Serial Monitor બંધ કરો અને ફરી Connect USB પર ક્લિક કરો.
             </p>
+            <div className="pt-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('tap');
+                  setShowSerialMonitor(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                <span>લાઈવ સીરીયલ મોનિટર ખોલો</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -549,6 +620,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>વાસ્તવિક લાઈવ ડેશબોર્ડ (Live Arduino Telemetry)</span>
               </h3>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('tap');
+                    setShowSerialMonitor(true);
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+                  title="Arduino માંથી આવતો રો-ડેટા (Raw Serial Data) જુઓ"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-sky-500" />
+                  <span className="hidden sm:inline">સીરીયલ મોનિટર</span>
+                  <span className="sm:hidden">મોનિટર</span>
+                </button>
                 <span className="text-[11px] sm:text-xs font-mono text-slate-500 dark:text-slate-400">
                   {isUsbConnected
                     ? serialMode === 'BLUETOOTH'
@@ -575,16 +659,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
 
-              {/* 2. Measured Distance to Water Surface in cm */}
+              {/* 2. Tank Water Level Status */}
               <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
                 <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
-                  ૨. માપેલું અંતર (Distance)
+                  ૨. ટાંકી સ્થિતિ (Status)
                 </span>
-                <div className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 font-mono">
-                  {tank.currentDistanceCm !== null ? `${tank.currentDistanceCm} cm` : '--'}
+                <div className="text-base sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-1.5">
+                  {tank.currentPercent === null ? (
+                    '--'
+                  ) : tank.currentPercent >= 90 ? (
+                    <span className="text-amber-600 dark:text-amber-400">મહત્તમ સ્તર (Full)</span>
+                  ) : tank.currentPercent <= 15 ? (
+                    <span className="text-rose-600 dark:text-rose-400">ઓછું સ્તર (Low)</span>
+                  ) : (
+                    <span className="text-emerald-600 dark:text-emerald-400">સામાન્ય સ્તર (Normal)</span>
+                  )}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                  HC-SR04 અલ્ટ્રાસોનિક ઇકો
+                  {tank.currentPercent !== null ? `ઓટો-કટઓફ માર્જિન: ${Math.max(0, selectedTarget - 2)}%` : 'સેન્સર પ્રતિક્ષામાં'}
                 </div>
               </div>
 
@@ -961,11 +1053,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="h-full bg-rose-600" style={{ width: '3%' }} title="ક્રિટિકલ ઓવરફ્લો કટઓફ (>=97%)" />
               </div>
               <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                <span>0% (ખાલી: 13.26cm)</span>
+                <span>0% (ખાલી ટાંકી)</span>
                 <span>15% (ઓટો-સ્ટાર્ટ)</span>
                 <span>{selectedTarget}% (ટાર્ગેટ)</span>
                 <span>90% (હાર્ડ લિમિટ)</span>
-                <span>97% (ઓવરફ્લો કટઓફ: 2.40cm)</span>
+                <span>97% (ઓવરફ્લો કટઓફ)</span>
               </div>
             </div>
 
@@ -1023,7 +1115,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     />
                     <span className="text-slate-500">cm</span>
                   </div>
-                  <span className="text-[10px] text-slate-400">ડીફોલ્ટ: 13.26 cm</span>
+                  <span className="text-[10px] text-slate-400">ડીફોલ્ટ: 11.32 cm</span>
                 </div>
 
                 <div className="space-y-1">
@@ -1040,7 +1132,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     />
                     <span className="text-slate-500">cm</span>
                   </div>
-                  <span className="text-[10px] text-slate-400">ડીફોલ્ટ: 2.40 cm</span>
+                  <span className="text-[10px] text-slate-400">ડીફોલ્ટ: 2.37 cm</span>
                 </div>
               </div>
 
@@ -1111,6 +1203,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Real-time Serial Monitor Console Modal */}
+      <SerialMonitorModal
+        isOpen={showSerialMonitor}
+        onClose={() => setShowSerialMonitor(false)}
+        usbStatus={usbStatus}
+        usbBaudRate={usbBaudRate || 9600}
+        onSelectBaudRate={onSelectBaudRate}
+        onConnectUsb={onConnectUsb}
+        onDisconnectUsb={onDisconnectUsb}
+        usbTelemetry={usbTelemetry}
+        usbError={usbError}
+        isUsbSupported={isUsbSupported}
+      />
     </div>
   );
 };

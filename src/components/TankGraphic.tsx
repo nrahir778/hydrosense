@@ -74,10 +74,10 @@ export const TankGraphic: React.FC<TankGraphicProps> = ({
           </div>
           <div className="flex flex-col items-center">
             <span className="text-[11px] font-mono font-bold text-sky-300 tracking-wider">
-              HC-SR04 અલ્ટ્રાસોનિક સેન્સર
+              HC-SR04 લેવલ સેન્સર
             </span>
-            <span className="text-[9px] text-slate-400 font-mono">
-              ફુલ: {calibration.fullDistanceCm}cm · ખાલી: {calibration.emptyDistanceCm}cm
+            <span className="text-[9px] text-slate-400 font-medium">
+              લાઈવ વોટર લેવલ મોનિટરિંગ
             </span>
           </div>
           <div className="w-4 h-4 rounded-full bg-slate-950 border border-slate-600 flex items-center justify-center">
@@ -101,21 +101,29 @@ export const TankGraphic: React.FC<TankGraphicProps> = ({
 
       {/* Main Tank Graphic Container with Height Calibration Ruler */}
       <div className="relative w-full max-w-[340px] flex items-stretch">
-        {/* Left Side: Physical Distance & Calibration Ruler */}
-        <div className="w-16 flex flex-col justify-between py-2 text-[10px] font-mono text-slate-500 dark:text-slate-400 text-right pr-2 shrink-0 border-r border-dashed border-slate-300 dark:border-slate-700">
+        {/* Left Side: Clean Percentage Ruler */}
+        <div className="w-14 flex flex-col justify-between py-2 text-[10px] font-mono text-slate-500 dark:text-slate-400 text-right pr-2 shrink-0 border-r border-dashed border-slate-300 dark:border-slate-700">
           <div>
             <span className="font-bold text-slate-800 dark:text-slate-200">૧૦૦%</span>
-            <div className="text-[9px] text-sky-600 dark:text-sky-400 font-semibold">{calibration.fullDistanceCm} cm</div>
+            <div className="text-[9px] text-sky-600 dark:text-sky-400 font-semibold">ફુલ</div>
           </div>
 
-          <div className="my-auto py-2">
+          <div className="py-1">
             <span className="text-amber-500 font-semibold">૯૦%</span>
-            <div className="text-[9px] text-amber-500/80">ચેતવણી</div>
+            <div className="text-[9px] text-amber-500/80">મહત્તમ</div>
+          </div>
+
+          <div className="py-1">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">૫૦%</span>
+          </div>
+
+          <div className="py-1">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">૨૫%</span>
           </div>
 
           <div>
             <span className="font-bold text-slate-800 dark:text-slate-200">૦%</span>
-            <div className="text-[9px] text-slate-500 font-semibold">{calibration.emptyDistanceCm} cm</div>
+            <div className="text-[9px] text-slate-500 font-semibold">ખાલી</div>
           </div>
         </div>
 
@@ -179,15 +187,15 @@ export const TankGraphic: React.FC<TankGraphicProps> = ({
           {/* Center Overlay: Level Display OR Waiting for Hardware Connection */}
           {hasReading ? (
             <div className="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none">
-              <div className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl flex flex-col items-center text-center">
+              <div className="bg-white/85 dark:bg-slate-950/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl flex flex-col items-center text-center">
                 <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tabular-nums tracking-tight font-sans">
                   {percent.toFixed(1)}%
                 </span>
-                <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 mt-0.5">
-                  અંતર: {tank.currentDistanceCm} સે.મી.
+                <span className="text-xs font-bold text-sky-600 dark:text-sky-400 mt-0.5">
+                  પાણીનું સ્તર (Water Level)
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {tank.currentLiters} લિટર પાણી
+                  {tank.pumpStatus === 'RUNNING' ? '🟢 પંપ ચાલુ છે' : '⚪ પંપ બંધ છે'}
                 </span>
               </div>
             </div>
@@ -235,7 +243,7 @@ export const TankGraphic: React.FC<TankGraphicProps> = ({
           <div className="p-2.5 rounded-xl bg-rose-600 text-white flex items-center gap-2 text-xs font-bold shadow-lg animate-pulse">
             <ShieldAlert className="w-4 h-4 shrink-0" />
             <div className="leading-tight">
-              ક્રિટિકલ ઓવરફ્લો ચેતવણી: ટાંકી {percent}% ભરાઈ ગઈ છે! (અંતર: {tank.currentDistanceCm} cm)
+              ક્રિટિકલ ઓવરફ્લો ચેતવણી: ટાંકી {percent}% ભરાઈ ગઈ છે! પંપ બંધ થઈ ગયો છે.
             </div>
           </div>
         )}

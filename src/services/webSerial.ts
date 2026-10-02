@@ -52,6 +52,14 @@ class WebSerialService {
   private currentUsbBaudRate: number = 9600;
   private activeBaudRate: number = 9600;
 
+  // Cached telemetry values for robust multi-format parsing
+  private cachedLevel: number | null = null;
+  private cachedDistance: number | null = null;
+  private cachedPump: 'ON' | 'OFF' = 'OFF';
+  private cachedTarget: number = 75;
+  private cachedMode: 'MANUAL' | 'AUTO' = 'MANUAL';
+  private cachedError: string | null = null;
+
   // Web Bluetooth (GATT BLE) fields
   private bluetoothDevice: any = null;
   private rxCharacteristic: any = null;
@@ -287,10 +295,21 @@ class WebSerialService {
           message: 'કોઈ USB પોર્ટ પસંદ કરવામાં આવ્યો નથી (User cancelled).',
         };
         this.notifyStatus('DISCONNECTED', details);
-      } else if (err.name === 'InvalidStateError' || (err.message && err.message.includes('already open'))) {
+      } else if (
+        err.name === 'InvalidStateError' ||
+        err.name === 'NetworkError' ||
+        (err.message && (
+          err.message.toLowerCase().includes('already open') ||
+          err.message.toLowerCase().includes('failed to open') ||
+          err.message.toLowerCase().includes('in use') ||
+          err.message.toLowerCase().includes('busy') ||
+          err.message.toLowerCase().includes('access denied') ||
+          err.message.toLowerCase().includes('claim interface')
+        ))
+      ) {
         details = {
           code: 'BUSY',
-          message: 'આ COM પોર્ટ પહેલેથી જ ખુલ્લો છે અથવા અન્ય પ્રોગ્રામ વાપરી રહ્યું છે. કૃપા કરીને Arduino IDE Serial Monitor બંધ કરો.',
+          message: 'આ COM પોર્ટ Arduino IDE ના Serial Monitor અથવા અન્ય સોફ્ટવેર દ્વારા લોક (Busy) છે. કૃપા કરીને Arduino IDE માં Tools > Serial Monitor વિન્ડો બંધ કરો અને પછી અહીં "Connect USB" પર ક્લિક કરો.',
         };
         this.log(details.message, 'error');
         this.notifyStatus('ERROR', details);
@@ -724,13 +743,27 @@ class WebSerialService {
             const textChunk = decoder.decode(value, { stream: true });
             lineBuffer += textChunk;
 
-            // Split on newlines (\n or \r\n)
+            // Split on newlines (\n or \r\n or \r)
             let newlineIndex: number;
-            while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
-              const rawLine = lineBuffer.slice(0, newlineIndex).replace(/[\r\n]/g, '').trim();
-              lineBuffer = lineBuffer.slice(newlineIndex + 1);
+            while ((newlineIndex = lineBuffer.search(/[\r\n]/)) >= 0) {
+              const rawLine = lineBuffer.slice(0, newlineIndex).trim();
+              // Skip past consecutive newline characters (\r\n)
+              let skip = 1;
+              if (lineBuffer[newlineIndex] === '\r' && lineBuffer[newlineIndex + 1] === '\n') {
+                skip = 2;
+              }
+              lineBuffer = lineBuffer.slice(newlineIndex + skip);
               if (rawLine.length > 0) {
                 this.handleIncomingLine(rawLine);
+              }
+            }
+
+            // Safety fallback: if buffer exceeds 300 chars without newline, parse it directly
+            if (lineBuffer.length > 300) {
+              const forced = lineBuffer.trim();
+              lineBuffer = '';
+              if (forced.length > 0) {
+                this.handleIncomingLine(forced);
               }
             }
           }
@@ -754,75 +787,263 @@ class WebSerialService {
   }
 
   /**
+   * Emit consolidated telemetry to all listeners
+   */
+  private emitTelemetry(rawLine: string) {
+    const clampedTarget = isNaN(this.cachedTarget) ? 75 : Math.max(20, Math.min(90, this.cachedTarget));
+    const telemetry: ArduinoTelemetry = {
+      levelPercent: this.cachedLevel !== null ? Math.max(0, Math.min(100, Math.round(this.cachedLevel * 10) / 10)) : 0,
+      distanceCm: this.cachedDistance !== null ? Math.round(this.cachedDistance * 100) / 100 : 0,
+      pumpStatus: this.cachedPump,
+      targetPercent: clampedTarget,
+      operatingMode: this.cachedMode,
+      sensorError: this.cachedError,
+      lastReceivedAt: Date.now(),
+      isStale: false,
+      rawLine,
+    };
+    this.notifyTelemetry(telemetry);
+  }
+
+  /**
    * Parse protocol lines from Arduino Uno or HC-05 Bluetooth:
-   * Format: LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:75,MODE:AUTO,ERROR:NONE
-   * or: LEVEL:81.8,DISTANCE:4.37,PUMP:OFF,TARGET:75,MODE:MANUAL
+   * Supports:
+   * 1. Standard protocol: LEVEL:45.0,DISTANCE:7.28,PUMP:ON,TARGET:75,MODE:AUTO,ERROR:NONE
+   * 2. Single-line outputs: "LEVEL: 45.0", "Water Level: 45%", "Distance: 7.28 cm"
+   * 3. Equals-sign format: LEVEL=45.0,DISTANCE=7.28
+   * 4. JSON: {"level": 45.0, "distance": 7.28, "pump": "ON"}
    */
   private handleIncomingLine(line: string) {
     this.log(line, 'rx');
+    const trimmed = line.trim();
+    if (!trimmed) return;
 
-    const upper = line.toUpperCase();
-    if (upper.includes('LEVEL:') && upper.includes('DISTANCE:')) {
-      const parts = line.split(',');
-      let level = NaN;
-      let distance = NaN;
-      let pump: 'ON' | 'OFF' = this.lastTelemetry?.pumpStatus || 'OFF';
-      let target = this.lastTelemetry?.targetPercent || 75;
-      let mode: 'MANUAL' | 'AUTO' = this.lastTelemetry?.operatingMode || 'MANUAL';
-      let sensorError: string | null = null;
+    // 1. Try JSON payload
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const obj = JSON.parse(trimmed);
+        let updated = false;
+        if (typeof obj.level === 'number' || typeof obj.levelPercent === 'number' || typeof obj.LEVEL === 'number') {
+          this.cachedLevel = Number(obj.level ?? obj.levelPercent ?? obj.LEVEL);
+          updated = true;
+        }
+        if (typeof obj.distance === 'number' || typeof obj.distanceCm === 'number' || typeof obj.DISTANCE === 'number') {
+          this.cachedDistance = Number(obj.distance ?? obj.distanceCm ?? obj.DISTANCE);
+          updated = true;
+        }
+        if (typeof obj.pump === 'string' || typeof obj.PUMP === 'string') {
+          const p = String(obj.pump ?? obj.PUMP).toUpperCase();
+          this.cachedPump = p === 'ON' || p === '1' || p === 'TRUE' ? 'ON' : 'OFF';
+        }
+        if (typeof obj.target === 'number' || typeof obj.TARGET === 'number') {
+          this.cachedTarget = Math.max(20, Math.min(90, Number(obj.target ?? obj.TARGET)));
+        }
+        if (typeof obj.mode === 'string' || typeof obj.MODE === 'string') {
+          this.cachedMode = String(obj.mode ?? obj.MODE).toUpperCase() === 'AUTO' ? 'AUTO' : 'MANUAL';
+        }
+        if (typeof obj.error === 'string' || typeof obj.ERROR === 'string') {
+          const err = String(obj.error ?? obj.ERROR);
+          this.cachedError = err.toUpperCase() === 'NONE' || err === '' ? null : err;
+        }
+        if (updated && this.cachedLevel !== null) {
+          this.emitTelemetry(trimmed);
+          return;
+        }
+      } catch {
+        // Not valid JSON, continue with line parser
+      }
+    }
 
-      for (const part of parts) {
-        const colonIdx = part.indexOf(':');
-        if (colonIdx === -1) continue;
-        const key = part.slice(0, colonIdx).trim().toUpperCase();
-        const rawVal = part.slice(colonIdx + 1).trim();
-        const cleanVal = rawVal.replace(/%/g, '').trim();
+    // 2. Parse key-value tokens (comma, semicolon, pipe, tab, or key-boundary separated)
+    const normalized = trimmed.replace(/=/g, ':');
+    // Split on commas, semicolons, pipes, tabs, or whitespace immediately preceding a known key followed by colon
+    const tokens = normalized.split(/[,;|\t]+|\s+(?=[A-Za-z0-9_]+:)/).map((t) => t.trim()).filter(Boolean);
 
-        if (key === 'LEVEL') {
-          level = parseFloat(cleanVal);
-        } else if (key === 'DISTANCE') {
-          distance = parseFloat(cleanVal);
-        } else if (key === 'PUMP') {
-          pump = cleanVal.toUpperCase() === 'ON' ? 'ON' : 'OFF';
-        } else if (key === 'TARGET') {
-          target = parseInt(cleanVal, 10);
-        } else if (key === 'MODE') {
-          mode = cleanVal.toUpperCase() === 'AUTO' ? 'AUTO' : 'MANUAL';
-        } else if (key === 'ERROR') {
-          sensorError = cleanVal.toUpperCase() === 'NONE' || cleanVal === '' ? null : cleanVal;
+    let foundAnyMetric = false;
+
+    // Check if the entire line is just a pure number or percentage like "45", "45%", "45.0%", "45.5"
+    const pureNumMatch = trimmed.match(/^([0-9]+(?:\.[0-9]+)?)\s*(%|cm|CM)?$/);
+    if (pureNumMatch) {
+      const val = parseFloat(pureNumMatch[1]);
+      const unit = pureNumMatch[2]?.toUpperCase();
+      if (!isNaN(val)) {
+        if (unit === 'CM') {
+          this.cachedDistance = Math.round(val * 100) / 100;
+          foundAnyMetric = true;
+        } else if (unit === '%' || (val >= 0 && val <= 100)) {
+          // If followed by % or within 0-100 range, it's the water level percentage
+          this.cachedLevel = Math.max(0, Math.min(100, Math.round(val * 10) / 10));
+          foundAnyMetric = true;
         }
       }
+    }
 
-      // Enforce strict 20% to 90% target range
-      const clampedTarget = isNaN(target) ? 75 : Math.max(20, Math.min(90, target));
+    if (!foundAnyMetric) {
+      for (const token of tokens) {
+        const colonIdx = token.indexOf(':');
+        if (colonIdx === -1) {
+          // Check for formats without colon like "Water Level 75%", "Level is 45%", "Distance 12 cm", or "45%"
+          const numMatch = token.match(/([0-9]+(?:\.[0-9]+)?)/);
+          if (numMatch) {
+            const val = parseFloat(numMatch[1]);
+            const upToken = token.toUpperCase();
+            if (
+              upToken.includes('LEVEL') ||
+              upToken.includes('WATER') ||
+              upToken.includes('TANK') ||
+              upToken.includes('PCT') ||
+              upToken.includes('PERCENT') ||
+              upToken.includes('LVL') ||
+              upToken.includes('LEV') ||
+              upToken.includes('લેવલ') ||
+              token.includes('%')
+            ) {
+              if (!isNaN(val) && val >= 0 && val <= 100) {
+                this.cachedLevel = Math.max(0, Math.min(100, Math.round(val * 10) / 10));
+                foundAnyMetric = true;
+              }
+            } else if (
+              upToken.includes('DIST') ||
+              upToken.includes('CM') ||
+              upToken.includes('SONAR') ||
+              upToken.includes('ECHO') ||
+              upToken.includes('RANGE') ||
+              upToken.includes('અંતર')
+            ) {
+              if (!isNaN(val) && val >= 0) {
+                this.cachedDistance = Math.round(val * 100) / 100;
+                foundAnyMetric = true;
+              }
+            }
+          }
+          continue;
+        }
 
-      if (!isNaN(level) && !isNaN(distance)) {
-        const telemetry: ArduinoTelemetry = {
-          levelPercent: Math.max(0, Math.min(100, Math.round(level * 10) / 10)),
-          distanceCm: Math.round(distance * 100) / 100,
-          pumpStatus: pump,
-          targetPercent: clampedTarget,
-          operatingMode: mode,
-          sensorError,
-          lastReceivedAt: Date.now(),
-          isStale: false,
-          rawLine: line,
-        };
-        this.notifyTelemetry(telemetry);
+        const key = token.slice(0, colonIdx).trim().toUpperCase();
+        const rawVal = token.slice(colonIdx + 1).trim();
+        const cleanVal = rawVal.replace(/[%cmCM\s]/g, '').trim();
+        const numMatch = cleanVal.match(/-?[0-9]+(?:\.[0-9]+)?/);
+        const parsedNum = numMatch ? parseFloat(numMatch[0]) : NaN;
+
+        if (
+          key.includes('LEVEL') ||
+          key === 'L' ||
+          key.includes('WATER') ||
+          key.includes('TANK') ||
+          key.includes('PCT') ||
+          key.includes('PERCENT') ||
+          key.includes('LVL') ||
+          key.includes('LEV') ||
+          key.includes('DEPTH') ||
+          key.includes('HEIGHT') ||
+          key.includes('HT') ||
+          key.includes('લેવલ')
+        ) {
+          if (!isNaN(parsedNum)) {
+            this.cachedLevel = Math.max(0, Math.min(100, Math.round(parsedNum * 10) / 10));
+            foundAnyMetric = true;
+          }
+        } else if (
+          key.includes('DIST') ||
+          key === 'D' ||
+          key.includes('SONAR') ||
+          key.includes('ECHO') ||
+          key.includes('RANGE') ||
+          key.includes('અંતર')
+        ) {
+          if (!isNaN(parsedNum)) {
+            this.cachedDistance = Math.round(parsedNum * 100) / 100;
+            foundAnyMetric = true;
+          }
+        } else if (key.includes('PUMP') || key.includes('MOTOR') || key.includes('RELAY') || key === 'P' || key.includes('પંપ')) {
+          const upVal = rawVal.toUpperCase();
+          this.cachedPump = upVal === 'ON' || upVal === '1' || upVal === 'TRUE' || upVal === 'START' || upVal.includes('RUN') ? 'ON' : 'OFF';
+          foundAnyMetric = true;
+        } else if (key.includes('TARGET') || key.includes('SETPOINT') || key === 'T' || key.includes('GOAL')) {
+          if (!isNaN(parsedNum)) {
+            this.cachedTarget = Math.max(20, Math.min(90, Math.round(parsedNum)));
+            foundAnyMetric = true;
+          }
+        } else if (key.includes('MODE') || key === 'M') {
+          this.cachedMode = rawVal.toUpperCase().includes('AUTO') ? 'AUTO' : 'MANUAL';
+          foundAnyMetric = true;
+        } else if (key.includes('ERROR') || key.includes('ERR') || key.includes('FAULT')) {
+          const upErr = rawVal.toUpperCase();
+          this.cachedError = upErr === 'NONE' || upErr === 'OK' || upErr === '' ? null : rawVal;
+          foundAnyMetric = true;
+        }
       }
-    } else if (line.startsWith('ERROR:')) {
-      const errMsg = line.slice(6).trim();
+    }
+
+    if (foundAnyMetric && (this.cachedLevel !== null || this.cachedDistance !== null)) {
+      // Calibrated to user's tank: EMPTY_DISTANCE_CM = 11.32, FULL_DISTANCE_CM = 2.37 (span = 8.95)
+      const empty = 11.32;
+      const span = 8.95;
+
+      // If level is not reported directly but distance is, calculate based on tank span
+      if (this.cachedLevel === null && this.cachedDistance !== null) {
+        const calculated = ((empty - this.cachedDistance) / span) * 100.0;
+        this.cachedLevel = Math.max(0, Math.min(100, Math.round(calculated * 10) / 10));
+      } else if (this.cachedLevel !== null && this.cachedDistance === null) {
+        // If distance is not reported directly but level is, estimate distance
+        const estimatedDist = empty - ((this.cachedLevel / 100.0) * span);
+        this.cachedDistance = Math.max(0, Math.round(estimatedDist * 100) / 100);
+      }
+
+      this.emitTelemetry(trimmed);
+      return;
+    }
+
+    // Direct handlers for Arduino command acknowledgments and status
+    const upTrimmed = trimmed.toUpperCase();
+    if (upTrimmed.startsWith('OK,') || upTrimmed.startsWith('INFO,') || upTrimmed.startsWith('ERROR,')) {
+      if (upTrimmed.includes('PUMP=ON')) {
+        this.cachedPump = 'ON';
+        this.emitTelemetry(trimmed);
+      } else if (upTrimmed.includes('PUMP=OFF')) {
+        this.cachedPump = 'OFF';
+        this.emitTelemetry(trimmed);
+      } else if (upTrimmed.includes('MODE=AUTO')) {
+        this.cachedMode = 'AUTO';
+        this.emitTelemetry(trimmed);
+      } else if (upTrimmed.includes('MODE=MANUAL')) {
+        this.cachedMode = 'MANUAL';
+        this.emitTelemetry(trimmed);
+      } else if (upTrimmed.startsWith('OK,TARGET=')) {
+        const tVal = parseInt(upTrimmed.split('=')[1], 10);
+        if (!isNaN(tVal)) {
+          this.cachedTarget = Math.max(20, Math.min(90, tVal));
+          this.emitTelemetry(trimmed);
+        }
+      } else if (upTrimmed.includes('ERROR,SENSOR')) {
+        this.cachedError = 'SENSOR_FAULT';
+        this.log('Arduino ચેતવણી: સેન્સર ફોલ્ટ (SENSOR FAULT)', 'error');
+        this.emitTelemetry(trimmed);
+      } else if (upTrimmed.includes('TARGET_ALREADY_REACHED')) {
+        this.log('Arduino: ટાર્ગેટ લેવલ પહેલેથી જ પહોંચી ગયું છે', 'info');
+      }
+      return;
+    }
+
+    if (upTrimmed.includes('WATER_TANK_READY')) {
+      this.log('Arduino Uno વોટર ટેન્ક કંટ્રોલર તૈયાર છે (WATER_TANK_READY)', 'info');
+      return;
+    }
+
+    if (trimmed.startsWith('ERROR:')) {
+      const errMsg = trimmed.slice(6).trim();
       this.log(`Device Error: ${errMsg}`, 'error');
+      this.cachedError = errMsg;
       if (this.lastTelemetry) {
         this.notifyTelemetry({
           ...this.lastTelemetry,
           sensorError: errMsg,
           lastReceivedAt: Date.now(),
-          rawLine: line,
+          rawLine: trimmed,
         });
       }
-    } else if (line.startsWith('ALERT:') || line.startsWith('INFO:')) {
-      this.log(`Device Msg: ${line}`, 'info');
+    } else if (trimmed.startsWith('ALERT:') || trimmed.startsWith('INFO:')) {
+      this.log(`Device Msg: ${trimmed}`, 'info');
     }
   }
 
